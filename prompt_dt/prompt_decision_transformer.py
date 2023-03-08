@@ -153,6 +153,7 @@ class PromptDecisionTransformer(nn.Module):
             timesteps = timesteps[:,-self.max_length:]
 
             # pad all tokens to sequence length
+            # left padding
             attention_mask = torch.cat([torch.zeros(self.max_length-states.shape[1]), torch.ones(states.shape[1])])
             attention_mask = attention_mask.to(dtype=torch.long, device=states.device).reshape(1, -1)
             states = torch.cat(
