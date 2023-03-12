@@ -7,7 +7,7 @@ import torch.nn as nn
 
 import transformers
 
-from .trajectory_gpt2 import GPT2Model
+from prompt_dt.trajectory_gpt2 import GPT2Model
 
 class PromptDecisionTransformer(nn.Module):
 
@@ -17,8 +17,9 @@ class PromptDecisionTransformer(nn.Module):
             act_dim,
             hidden_size,
             max_length=None,
-            max_ep_len=4096,
-            action_tanh=True,
+            max_ep_len=4096, # max length of an episode
+            action_tanh=True, # use tanh instead of relu for output action activation
+            parallelize_transformer=False, # parallelize transformer or not
             **kwargs
     ):
         super().__init__()
@@ -26,24 +27,31 @@ class PromptDecisionTransformer(nn.Module):
         self.act_dim = act_dim
         self.max_length = max_length
         self.hidden_size = hidden_size
+
+        # transformer configuration
         config = transformers.GPT2Config(vocab_size=1, n_embd=hidden_size, **kwargs)
 
         # note: the only difference between this GPT2Model and the default Huggingface version
         # is that the positional embeddings are removed (since we'll add those ourselves)
         self.transformer = GPT2Model(config)
-        # change to parallelize mode for metaworld big model
-        # self.transformer.parallelize()
 
+        # change transformer to parallelize mode for metaworld big model
+        if parallelize_transformer:
+            self.transformer.parallelize()
+
+        # input encoders
         self.embed_timestep = nn.Embedding(max_ep_len, hidden_size)
         self.embed_return = torch.nn.Linear(1, hidden_size)
         self.embed_state = torch.nn.Linear(self.state_dim, hidden_size)
         self.embed_action = torch.nn.Linear(self.act_dim, hidden_size)
 
+        # prompt encoders
         self.prompt_embed_timestep = nn.Embedding(max_ep_len, hidden_size)
         self.prompt_embed_return = torch.nn.Linear(1, hidden_size)
         self.prompt_embed_state = torch.nn.Linear(self.state_dim, hidden_size)
         self.prompt_embed_action = torch.nn.Linear(self.act_dim, hidden_size)
 
+        # embed stacked input
         self.embed_ln = nn.LayerNorm(hidden_size)
 
         # note: we don't predict states or returns for the paper
@@ -53,6 +61,8 @@ class PromptDecisionTransformer(nn.Module):
         )
         self.predict_return = torch.nn.Linear(hidden_size, 1)
 
+    # input: a sequence of (s,a,r,t) of length max_length
+    # output: a sequence of predicted (s,a,r) of length max_length
     def forward(self, states, actions, rewards, returns_to_go, timesteps, attention_mask=None, prompt=None):
         batch_size, seq_length = states.shape[0], states.shape[1]
         if attention_mask is None:
@@ -60,10 +70,10 @@ class PromptDecisionTransformer(nn.Module):
             attention_mask = torch.ones((batch_size, seq_length), dtype=torch.long)
 
         # embed each modality with a different head
-        state_embeddings = self.embed_state(states)
-        action_embeddings = self.embed_action(actions)
-        returns_embeddings = self.embed_return(returns_to_go)
-        time_embeddings = self.embed_timestep(timesteps)
+        state_embeddings = self.embed_state(states)  # [B,L,state_dim] --> [B,L,hidden_size]
+        action_embeddings = self.embed_action(actions) # [B,L,action_dim] --> [B,L,hidden_size]
+        returns_embeddings = self.embed_return(returns_to_go) # [B,L,1] --> [B,L,hidden_size]
+        time_embeddings = self.embed_timestep(timesteps) # [B,L,1] --> [B,L,hidden_size]
 
         # time embeddings are treated similar to positional embeddings
         state_embeddings = state_embeddings + time_embeddings
@@ -72,9 +82,13 @@ class PromptDecisionTransformer(nn.Module):
 
         # this makes the sequence look like (R_1, s_1, a_1, R_2, s_2, a_2, ...)
         # which works nice in an autoregressive sense since states predict actions
+        # before permutation: [batch_size, 3, seq_length, hidden_size] (dim 1 is a new dim)
+        # after permutation: [batch_size, seq_length, 3, hidden_size]
+        # after reshape: sequence length becomes 3*seq_length
         stacked_inputs = torch.stack(
             (returns_embeddings, state_embeddings, action_embeddings), dim=1
         ).permute(0, 2, 1, 3).reshape(batch_size, 3*seq_length, self.hidden_size)
+        # embed the concatenated input
         stacked_inputs = self.embed_ln(stacked_inputs)
 
         # to make the attention mask fit the stacked inputs, have to stack it as well
@@ -132,12 +146,15 @@ class PromptDecisionTransformer(nn.Module):
 
         # note here all the prompt are pre-append to x, but when return only return the last [:, -seq_length:, :] corresponding to batch data
         # get predictions
+        # x[:,2] = x[:,2,:,:]
         return_preds = self.predict_return(x[:,2])[:, -seq_length:, :]  # predict next return given state and action
         state_preds = self.predict_state(x[:,2])[:, -seq_length:, :]    # predict next state given state and action
         action_preds = self.predict_action(x[:,1])[:, -seq_length:, :]  # predict next action given state
 
         return state_preds, action_preds, return_preds
 
+    # input a sequence of (r,s,t) of length max_length
+    # only return the last action
     def get_action(self, states, actions, rewards, returns_to_go, timesteps, **kwargs):
         # we don't care about the past rewards in this model
 
@@ -152,20 +169,25 @@ class PromptDecisionTransformer(nn.Module):
             returns_to_go = returns_to_go[:,-self.max_length:]
             timesteps = timesteps[:,-self.max_length:]
 
-            # pad all tokens to sequence length
-            # left padding
+            # only attend to the valid part (non padding part)
+            # 0 - not attend, 1 - attend
             attention_mask = torch.cat([torch.zeros(self.max_length-states.shape[1]), torch.ones(states.shape[1])])
             attention_mask = attention_mask.to(dtype=torch.long, device=states.device).reshape(1, -1)
+            # left pad all tokens to sequence length
+            # pad state with 0 if shorter than max_length
             states = torch.cat(
                 [torch.zeros((states.shape[0], self.max_length-states.shape[1], self.state_dim), device=states.device), states],
                 dim=1).to(dtype=torch.float32)
+            # pad action with 0 if shorter than max_length 
             actions = torch.cat(
                 [torch.zeros((actions.shape[0], self.max_length - actions.shape[1], self.act_dim),
                              device=actions.device), actions],
                 dim=1).to(dtype=torch.float32)
+            # pad rtg with 0 if shorter than max_length
             returns_to_go = torch.cat(
                 [torch.zeros((returns_to_go.shape[0], self.max_length-returns_to_go.shape[1], 1), device=returns_to_go.device), returns_to_go],
                 dim=1).to(dtype=torch.float32)
+            # pad timestep with 0 if shorter than max_length
             timesteps = torch.cat(
                 [torch.zeros((timesteps.shape[0], self.max_length-timesteps.shape[1]), device=timesteps.device), timesteps],
                 dim=1

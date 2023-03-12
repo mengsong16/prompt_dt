@@ -5,7 +5,7 @@ import numpy as np
 import torch
 import time
 from wandb import env
-from .prompt_utils import flatten_prompt
+from prompt_dt.prompt_utils import flatten_prompt
 import copy
 
 

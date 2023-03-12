@@ -1,0 +1,56 @@
+# environment
+base_env: 'ant_dir' # ['cheetah_dir', 'cheetah_vel', 'ant_dir', 'ML1-pick-place-v2']
+
+# dataset
+train_dataset_mode: 'expert'
+test_dataset_mode: 'expert'
+train_prompt_mode: 'expert'
+test_prompt_mode: 'expert'
+reward_mode: 'normal' # ['normal', 'delayed']
+average_state_mean: true # use state mean/std from all train+test data instead of a specific environment
+pct_traj: 1.0
+
+# prompt
+prompt-episode:  1
+prompt-length: 5
+stochastic-prompt: true
+
+no-prompt: false
+no-r: false
+no-rtg: false
+finetune: false
+finetune_steps: 10
+finetune_batch_size: 256
+finetune_opt: true
+finetune_lr: 1.0e-4
+no_state_normalize: false 
+
+evaluation: false
+render: false 
+load-path: None # choose a model when in evaluation mode
+
+# transformer
+embed_dim: 128
+n_layer: 3
+n_head: 1
+activation_function: 'relu'
+dropout: 0.1
+K: 20
+
+# training
+batch_size: 16
+learning_rate: 1.0e-4
+weight_decay: 1.0e-4
+warmup_steps: 10000  # 10000 * number of environments
+max_iters: 5000
+num_steps_per_iter: 10
+train_eval_interval: 500
+test_eval_interval: 100
+save-interval: 500
+num_eval_episodes: 50
+
+# device
+device: 'cuda'
+
+# log
+log_to_wandb: true

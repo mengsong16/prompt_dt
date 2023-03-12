@@ -1,6 +1,9 @@
 **/data/
 **/wandb/
-**/model_saved/
+**/runs/
+**/evaluation/
 **/log/
+**/envs/
+**/task_config/
 **__
 **egg-info
