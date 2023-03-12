@@ -68,8 +68,8 @@ def gen_env(env_name, config_save_path, seed):
         scale = 500.
     elif 'ML1-' in env_name: # metaworld ML1
         task_name = '-'.join(env_name.split('-')[1:-1])
-        ml1 = metaworld.ML1(task_name, seed=seed) # Construct the benchmark, sampling tasks
-        env = ml1.train_classes[task_name]()  # Create an environment with task
+        ml1 = metaworld.ML1(task_name, seed=seed) # construct the benchmark, sampling tasks
+        env = ml1.train_classes[task_name]()  # create an environment with task
         task_idx = int(env_name.split('-')[-1])
         task = ml1.train_tasks[task_idx]
         env.set_task(task)  # Set task
@@ -132,53 +132,29 @@ def get_prompt(prompt_trajectories, info, variant):
             np.arange(len(prompt_trajectories)),
             size=int(num_episodes*sample_size),
             replace=True,
-            # p=p_sample,  # reweights so we sample according to timesteps
         )
 
+        # crop a segement from each trajectory in the batch
         s, a, r, d, rtg, timesteps, mask = [], [], [], [], [], [], []
         for i in range(int(num_episodes*sample_size)):
             if variant["stochastic_prompt"]:
-                traj = prompt_trajectories[int(batch_inds[i])] # random select traj
+                # random select a trajectory from the pool
+                traj = prompt_trajectories[int(batch_inds[i])] 
             else:
-                traj = prompt_trajectories[int(sorted_inds[-i])] # select the best traj with highest rewards
-                # traj = prompt_trajectories[i]
+                # select the trajectory with the highest return
+                traj = prompt_trajectories[int(sorted_inds[-i])] 
+
+            # si is the beginning of the last segment of length max_len in the trajectory
             si = max(0, traj['rewards'].shape[0] - max_len -1) # select the last traj with length max_len
 
-            # get sequences from dataset
-            s.append(traj['observations'][si:si + max_len].reshape(1, -1, state_dim))
-            a.append(traj['actions'][si:si + max_len].reshape(1, -1, act_dim))
-            r.append(traj['rewards'][si:si + max_len].reshape(1, -1, 1))
-            if 'terminals' in traj:
-                d.append(traj['terminals'][si:si + max_len].reshape(1, -1))
-            else:
-                d.append(traj['dones'][si:si + max_len].reshape(1, -1))
-            timesteps.append(np.arange(si, si + s[-1].shape[1]).reshape(1, -1))
-            timesteps[-1][timesteps[-1] >= max_ep_len] = max_ep_len - 1  # padding cutoff
-            rtg.append(discount_cumsum(traj['rewards'][si:], gamma=1.)[:s[-1].shape[1] + 1].reshape(1, -1, 1))
-            if rtg[-1].shape[1] <= s[-1].shape[1]:
-                rtg[-1] = np.concatenate([rtg[-1], np.zeros((1, 1, 1))], axis=1)
-
-            # padding and state + reward normalization
-            tlen = s[-1].shape[1]
-            # if tlen !=args.K:
-            #     print('tlen not equal to k')
-            s[-1] = np.concatenate([np.zeros((1, max_len - tlen, state_dim)), s[-1]], axis=1)
-            if not variant['no_state_normalize']:
-                s[-1] = (s[-1] - state_mean) / state_std
-            a[-1] = np.concatenate([np.ones((1, max_len - tlen, act_dim)) * -10., a[-1]], axis=1)
-            r[-1] = np.concatenate([np.zeros((1, max_len - tlen, 1)), r[-1]], axis=1)
-            d[-1] = np.concatenate([np.ones((1, max_len - tlen)) * 2, d[-1]], axis=1)
-            rtg[-1] = np.concatenate([np.zeros((1, max_len - tlen, 1)), rtg[-1]], axis=1) / scale
-            timesteps[-1] = np.concatenate([np.zeros((1, max_len - tlen)), timesteps[-1]], axis=1)
-            mask.append(np.concatenate([np.zeros((1, max_len - tlen)), np.ones((1, tlen))], axis=1))
-
-        s = torch.from_numpy(np.concatenate(s, axis=0)).to(dtype=torch.float32, device=device)
-        a = torch.from_numpy(np.concatenate(a, axis=0)).to(dtype=torch.float32, device=device)
-        r = torch.from_numpy(np.concatenate(r, axis=0)).to(dtype=torch.float32, device=device)
-        d = torch.from_numpy(np.concatenate(d, axis=0)).to(dtype=torch.long, device=device)
-        rtg = torch.from_numpy(np.concatenate(rtg, axis=0)).to(dtype=torch.float32, device=device)
-        timesteps = torch.from_numpy(np.concatenate(timesteps, axis=0)).to(dtype=torch.long, device=device)
-        mask = torch.from_numpy(np.concatenate(mask, axis=0)).to(device=device)
+            # append the segment
+            append_new_segment(traj, si, max_len, max_ep_len, 
+                       state_dim, act_dim, variant, 
+                       state_mean, state_std, scale,
+                       s, a, r, d, rtg, timesteps, mask)
+            
+        # numpy to torch tensor
+        s, a, r, d, rtg, timesteps, mask = numpy_to_tensor(s, a, r, d, rtg, timesteps, mask, device)
         
         return s, a, r, d, rtg, timesteps, mask
 
@@ -232,6 +208,75 @@ def get_prompt_batch(trajectories_list, prompt_trajectories_list, info, variant,
 
 """ batches """
 
+def numpy_to_tensor(s, a, r, d, rtg, timesteps, mask, device):
+    s = torch.from_numpy(np.concatenate(s, axis=0)).to(dtype=torch.float32, device=device)
+    a = torch.from_numpy(np.concatenate(a, axis=0)).to(dtype=torch.float32, device=device)
+    r = torch.from_numpy(np.concatenate(r, axis=0)).to(dtype=torch.float32, device=device)
+    d = torch.from_numpy(np.concatenate(d, axis=0)).to(dtype=torch.long, device=device)
+    rtg = torch.from_numpy(np.concatenate(rtg, axis=0)).to(dtype=torch.float32, device=device)
+    timesteps = torch.from_numpy(np.concatenate(timesteps, axis=0)).to(dtype=torch.long, device=device)
+    mask = torch.from_numpy(np.concatenate(mask, axis=0)).to(device=device)
+
+    return s, a, r, d, rtg, timesteps, mask
+
+def append_new_segment(traj, si, max_len, max_ep_len, 
+                       state_dim, act_dim, variant, 
+                       state_mean, state_std, scale,
+                       s, a, r, d, rtg, timesteps, mask):
+    # Note that if si+max_len exceeds current trajectory length, only fetch elements until the episode ends
+    s.append(traj['observations'][si:si + max_len].reshape(1, -1, state_dim))
+    a.append(traj['actions'][si:si + max_len].reshape(1, -1, act_dim))
+    r.append(traj['rewards'][si:si + max_len].reshape(1, -1, 1))
+    if 'terminals' in traj:
+        d.append(traj['terminals'][si:si + max_len].reshape(1, -1))
+    else:
+        d.append(traj['dones'][si:si + max_len].reshape(1, -1))
+    # each timestep is the step index inside this segment 
+    # index starting from the begining of the trajectory: e.g. [5,6,7]
+    # s[-1].shape[1] is the length of current segment (must <= max_len)
+    timesteps.append(np.arange(si, si + s[-1].shape[1]).reshape(1, -1))
+    # if actual index exceed predefined max episode length, use the last step index (i.e. index max_ep_len - 1)
+    # timesteps[-1]: current segment
+    # timesteps[-1] >= max_ep_len: for each step in current segment, check whether it exceeds max_ep_len
+    timesteps[-1][timesteps[-1] >= max_ep_len] = max_ep_len - 1
+    # undiscounted return since gamma = 1
+    # first compute each state from si until the episode ends, then cut off at the current segment length + 1
+    # s[-1].shape: (1, max_len, state_dim)
+    # r[-1].shape: (1, max_len, 1)
+    # new_rtg.shape: (1, max_len+1, 1)
+    # the extra step in new_rtg will be discarded when batch is used in training
+    new_rtg = discount_cumsum(traj['rewards'][si:], gamma=1.)[:s[-1].shape[1] + 1].reshape(1, -1, 1)
+    rtg.append(new_rtg)
+    # append a single 0 to rtg
+    # this happens when [si, end_of_episode] is shorter than length of s[-1] + 1
+    if rtg[-1].shape[1] <= s[-1].shape[1]:  
+        rtg[-1] = np.concatenate([rtg[-1], np.zeros((1, 1, 1))], axis=1)
+
+    # left pad, state normalization, scale return-to-go
+    # tlen is the true length of current segment (<= max_len)
+    tlen = s[-1].shape[1]
+
+    # left pad state with 0 if shorter than max_len
+    s[-1] = np.concatenate([np.zeros((1, max_len - tlen, state_dim)), s[-1]], axis=1)
+    # normalize state distribution to N(0,1)
+    if not variant['no_state_normalize']:
+        s[-1] = (s[-1] - state_mean) / state_std
+    # left pad action with -10 if shorter than max_len
+    a[-1] = np.concatenate([np.ones((1, max_len - tlen, act_dim)) * -10., a[-1]], axis=1)
+    # left pad reward with 0 if shorter than max_len
+    # Note that reward is not scaled
+    r[-1] = np.concatenate([np.zeros((1, max_len - tlen, 1)), r[-1]], axis=1)
+    # left pad done with 2 if shorter than max_len
+    d[-1] = np.concatenate([np.ones((1, max_len - tlen)) * 2, d[-1]], axis=1)
+    # left pad rtg with 0 if shorter than max_len
+    # divide rtg by reward scale
+    rtg[-1] = np.concatenate([np.zeros((1, max_len - tlen, 1)), rtg[-1]], axis=1) / scale
+    # left pad timestep with 0 if shorter than max_len
+    timesteps[-1] = np.concatenate([np.zeros((1, max_len - tlen)), timesteps[-1]], axis=1)
+    # mask = 1 (not done) until tlen, after that = 0 (done)
+    mask.append(np.concatenate([np.zeros((1, max_len - tlen)), np.ones((1, tlen))], axis=1))
+
+
 def get_batch(trajectories, info, variant):
     num_trajectories, p_sample, sorted_inds = info['num_trajectories'], info['p_sample'], info['sorted_inds']
     max_ep_len, state_mean, state_std, scale = info['max_ep_len'], info['state_mean'], info['state_std'], info['scale']
@@ -248,70 +293,22 @@ def get_batch(trajectories, info, variant):
             p=p_sample,  # reweights so we sample according to trajectory length
         )
 
-        # split a trajectory batch into state, action, reward, return-to-go, timestep, mask
-        # each element in the new batch is a trajectory segment of length max_len
+        # crop a segement from each trajectory in the batch
         s, a, r, d, rtg, timesteps, mask = [], [], [], [], [], [], []
         for i in range(batch_size):
             # current trajectory
             traj = trajectories[int(sorted_inds[batch_inds[i]])]
             # randomly pick a segment of length max_len from current trajectory starting from state si
             si = random.randint(0, traj['rewards'].shape[0] - 1)
-            # Note that if si+max_len exceeds current trajectory length, only fetch elements until the episode ends
-            s.append(traj['observations'][si:si + max_len].reshape(1, -1, state_dim))
-            a.append(traj['actions'][si:si + max_len].reshape(1, -1, act_dim))
-            r.append(traj['rewards'][si:si + max_len].reshape(1, -1, 1))
-            if 'terminals' in traj:
-                d.append(traj['terminals'][si:si + max_len].reshape(1, -1))
-            else:
-                d.append(traj['dones'][si:si + max_len].reshape(1, -1))
-            # each timestep is the step index inside this segment 
-            # index starting from the begining of the trajectory: e.g. [5,6,7]
-            # s[-1].shape[1] is the length of current segment (must <= max_len)
-            timesteps.append(np.arange(si, si + s[-1].shape[1]).reshape(1, -1))
-            # if actual index exceed predefined max episode length, use the last step index (i.e. index max_ep_len - 1)
-            # timesteps[-1]: current segment
-            # timesteps[-1] >= max_ep_len: for each step in current segment, check whether it exceeds max_ep_len
-            timesteps[-1][timesteps[-1] >= max_ep_len] = max_ep_len - 1
-            # undiscounted return since gamma = 1
-            # first compute each state from si until the episode ends, then cut off for the current segment
-            rtg.append(discount_cumsum(traj['rewards'][si:], gamma=1.)[:s[-1].shape[1] + 1].reshape(1, -1, 1))
-            # pad with a single 0 rtg for the last state
-            if rtg[-1].shape[1] <= s[-1].shape[1]:  # this is always true
-                rtg[-1] = np.concatenate([rtg[-1], np.zeros((1, 1, 1))], axis=1)
-
-            # left pad, state normalization, scale return-to-go
-            # tlen is the true length of current segment (<= max_len)
-            tlen = s[-1].shape[1]
-
-            # left pad state with 0 if shorter than max_len
-            s[-1] = np.concatenate([np.zeros((1, max_len - tlen, state_dim)), s[-1]], axis=1)
-            # normalize state distribution to N(0,1)
-            if not variant['no_state_normalize']:
-                s[-1] = (s[-1] - state_mean) / state_std
-            # left pad action with -10 if shorter than max_len
-            a[-1] = np.concatenate([np.ones((1, max_len - tlen, act_dim)) * -10., a[-1]], axis=1)
-            # left pad reward with 0 if shorter than max_len
-            # Note that reward is not scaled
-            r[-1] = np.concatenate([np.zeros((1, max_len - tlen, 1)), r[-1]], axis=1)
-            # left pad done with 2 if shorter than max_len
-            d[-1] = np.concatenate([np.ones((1, max_len - tlen)) * 2, d[-1]], axis=1)
-            # left pad rtg with 0 if shorter than max_len
-            # divide rtg by reward scale
-            rtg[-1] = np.concatenate([np.zeros((1, max_len - tlen, 1)), rtg[-1]], axis=1) / scale
-            # left pad timestep with 0 if shorter than max_len
-            timesteps[-1] = np.concatenate([np.zeros((1, max_len - tlen)), timesteps[-1]], axis=1)
-            # mask = 1 (not done) until tlen, after that = 0 (done)
-            mask.append(np.concatenate([np.zeros((1, max_len - tlen)), np.ones((1, tlen))], axis=1))
-
+            # append the segment
+            append_new_segment(traj, si, max_len, max_ep_len, 
+                       state_dim, act_dim, variant, 
+                       state_mean, state_std, scale,
+                       s, a, r, d, rtg, timesteps, mask)
+            
         # numpy to torch tensor
-        s = torch.from_numpy(np.concatenate(s, axis=0)).to(dtype=torch.float32, device=device)
-        a = torch.from_numpy(np.concatenate(a, axis=0)).to(dtype=torch.float32, device=device)
-        r = torch.from_numpy(np.concatenate(r, axis=0)).to(dtype=torch.float32, device=device)
-        d = torch.from_numpy(np.concatenate(d, axis=0)).to(dtype=torch.long, device=device)
-        rtg = torch.from_numpy(np.concatenate(rtg, axis=0)).to(dtype=torch.float32, device=device)
-        timesteps = torch.from_numpy(np.concatenate(timesteps, axis=0)).to(dtype=torch.long, device=device)
-        mask = torch.from_numpy(np.concatenate(mask, axis=0)).to(device=device)
-
+        s, a, r, d, rtg, timesteps, mask = numpy_to_tensor(s, a, r, d, rtg, timesteps, mask, device)
+        
         return s, a, r, d, rtg, timesteps, mask
 
     return fn
@@ -324,6 +321,8 @@ def get_batch_finetune(trajectories, info, variant):
     batch_size, K = variant['batch_size'], variant['prompt_length'] # use the same amount of data for funetuning
 
     def fn(batch_size=batch_size, max_len=K):
+        # sample batch_size trajectories from the trajectory pool with replacement
+        # prefer long trajectory
         batch_inds = np.random.choice(
             np.arange(num_trajectories),
             size=batch_size,
@@ -331,48 +330,24 @@ def get_batch_finetune(trajectories, info, variant):
             p=p_sample,  # reweights so we sample according to trajectory length
         )
 
+        # crop a segement from each trajectory in the batch
         s, a, r, d, rtg, timesteps, mask = [], [], [], [], [], [], []
         for i in range(batch_size):
+            # current trajectory
             traj = trajectories[int(sorted_inds[batch_inds[i]])]
+            # si is in the last segment of length max_len in the trajectory
             si = random.randint(0, traj['rewards'].shape[0] - 1)
-            si = max(0, traj['rewards'].shape[0] - max_len -1) # select the last traj with length max_len
+            si = max(0, traj['rewards'].shape[0] - max_len -1) 
 
-            # get sequences from dataset
-            s.append(traj['observations'][si:si + max_len].reshape(1, -1, state_dim))
-            a.append(traj['actions'][si:si + max_len].reshape(1, -1, act_dim))
-            r.append(traj['rewards'][si:si + max_len].reshape(1, -1, 1))
-            if 'terminals' in traj:
-                d.append(traj['terminals'][si:si + max_len].reshape(1, -1))
-            else:
-                d.append(traj['dones'][si:si + max_len].reshape(1, -1))
-            timesteps.append(np.arange(si, si + s[-1].shape[1]).reshape(1, -1))
-            timesteps[-1][timesteps[-1] >= max_ep_len] = max_ep_len - 1  # padding cutoff
-            rtg.append(discount_cumsum(traj['rewards'][si:], gamma=1.)[:s[-1].shape[1] + 1].reshape(1, -1, 1))
-            if rtg[-1].shape[1] <= s[-1].shape[1]:
-                rtg[-1] = np.concatenate([rtg[-1], np.zeros((1, 1, 1))], axis=1)
-
-            # padding and state + reward normalization
-            tlen = s[-1].shape[1]
-            # if tlen !=args.K:
-            #     print('tlen not equal to k')
-            s[-1] = np.concatenate([np.zeros((1, max_len - tlen, state_dim)), s[-1]], axis=1)
-            if not variant['no_state_normalize']:
-                s[-1] = (s[-1] - state_mean) / state_std
-            a[-1] = np.concatenate([np.ones((1, max_len - tlen, act_dim)) * -10., a[-1]], axis=1)
-            r[-1] = np.concatenate([np.zeros((1, max_len - tlen, 1)), r[-1]], axis=1)
-            d[-1] = np.concatenate([np.ones((1, max_len - tlen)) * 2, d[-1]], axis=1)
-            rtg[-1] = np.concatenate([np.zeros((1, max_len - tlen, 1)), rtg[-1]], axis=1) / scale
-            timesteps[-1] = np.concatenate([np.zeros((1, max_len - tlen)), timesteps[-1]], axis=1)
-            mask.append(np.concatenate([np.zeros((1, max_len - tlen)), np.ones((1, tlen))], axis=1))
-
-        s = torch.from_numpy(np.concatenate(s, axis=0)).to(dtype=torch.float32, device=device)
-        a = torch.from_numpy(np.concatenate(a, axis=0)).to(dtype=torch.float32, device=device)
-        r = torch.from_numpy(np.concatenate(r, axis=0)).to(dtype=torch.float32, device=device)
-        d = torch.from_numpy(np.concatenate(d, axis=0)).to(dtype=torch.long, device=device)
-        rtg = torch.from_numpy(np.concatenate(rtg, axis=0)).to(dtype=torch.float32, device=device)
-        timesteps = torch.from_numpy(np.concatenate(timesteps, axis=0)).to(dtype=torch.long, device=device)
-        mask = torch.from_numpy(np.concatenate(mask, axis=0)).to(device=device) # TODO: why mask only has several zeros
-
+            # append the segment
+            append_new_segment(traj, si, max_len, max_ep_len, 
+                       state_dim, act_dim, variant, 
+                       state_mean, state_std, scale,
+                       s, a, r, d, rtg, timesteps, mask)
+            
+        # numpy to torch tensor
+        s, a, r, d, rtg, timesteps, mask = numpy_to_tensor(s, a, r, d, rtg, timesteps, mask, device)
+        
         return s, a, r, d, rtg, timesteps, mask
 
     return fn
@@ -432,6 +407,7 @@ def process_dataset(trajectories, reward_mode, env_name, dataset, pct_traj, verb
         timesteps += traj_lens[sorted_inds[ind]]
         num_trajectories += 1
         ind -= 1
+    
     sorted_inds = sorted_inds[-num_trajectories:]
 
     # percentage according to trajectory length
@@ -487,9 +463,10 @@ def process_info(env_name_list, trajectories_list, info, reward_mode, dataset, p
         if variant['average_state_mean']:
             info[env_name]['state_mean'] = variant['total_state_mean']
             info[env_name]['state_std'] = variant['total_state_std']
+    
     return info
 
-
+# compute discounted return at each step in the sequence x
 def discount_cumsum(x, gamma):
     discount_cumsum = np.zeros_like(x)
     discount_cumsum[-1] = x[-1]

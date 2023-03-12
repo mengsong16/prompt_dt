@@ -18,7 +18,6 @@ prompt_episode:  1
 prompt_length: 5
 stochastic_prompt: true
 no_state_normalize: false
-
 no_prompt: false
 no_r: false
 no_rtg: false
@@ -35,7 +34,7 @@ n_layer: 3
 n_head: 1
 activation_function: 'relu'
 dropout: 0.1
-K: 20
+K: 20  # input segment length
 
 # training
 batch_size: 16
@@ -48,7 +47,7 @@ num_steps_per_iter: 10
 train_eval_interval: 500 
 # test in test environments every n iterations
 test_eval_interval: 100
-save_interval: 500
+save_interval: 1 #500
 num_eval_episodes: 50
 
 # evaluation

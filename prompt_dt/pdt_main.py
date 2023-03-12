@@ -24,8 +24,6 @@ from prompt_dt.utils.other import parse_config, seed_other
 from collections import namedtuple
 import json, pickle, os
 
-def set_experiment_name():
-    return
 
 def experiment_mix_env(variant, mode):
     # print out variant
@@ -153,7 +151,6 @@ def experiment_mix_env(variant, mode):
         model=model,
         optimizer=optimizer,
         batch_size=batch_size,
-        #get_batch=get_batch(train_trajectories_list[0], train_info[env_name_0], variant),
         get_batch=get_batch,
         scheduler=scheduler,
         loss_fn=lambda s_hat, a_hat, r_hat, s, a, r: torch.mean((a_hat - a) ** 2),
@@ -174,10 +171,8 @@ def experiment_mix_env(variant, mode):
         now = datetime.datetime.now()
         experiment_name = "s%d-"%(seed) + now.strftime("%Y%m%d-%H%M%S").lower() 
 
-        # create checkpoint folder
+        # get checkpoint folder path
         checkpoint_path = os.path.join(runs_path, group_name + "-" + experiment_name)
-        if not os.path.exists(checkpoint_path):
-            os.makedirs(checkpoint_path)
         
         # wandb initialize
         if log_to_wandb:
@@ -203,11 +198,13 @@ def experiment_mix_env(variant, mode):
             env_id = iter % num_train_env
             env_name = train_env_name_list[env_id]
 
-            # train for n updates
+            # train for n update steps
             outputs = trainer.pure_train_iteration_mix(
                 num_steps=variant['num_steps_per_iter'], 
                 no_prompt=variant['no_prompt']
                 )
+            
+            print("======> Iteration %d train done."%(iter+1))
 
             # evaluate in test environments
             if iter % variant['test_eval_interval'] == 0:
@@ -238,7 +235,7 @@ def experiment_mix_env(variant, mode):
             if iter % variant['save_interval'] == 0:
                 trainer.save_model(
                     env_name=env_name, 
-                    postfix=model_post_fix+'_iter_'+str(iter), 
+                    postfix=model_post_fix+'_iter-'+str(iter), # iteration index starts from 0
                     folder=checkpoint_path)
 
             outputs.update({"global_step": iter}) # set global step as iteration
@@ -247,8 +244,10 @@ def experiment_mix_env(variant, mode):
             if log_to_wandb:
                 wandb.log(outputs)
         
-        # save model at the last
-        trainer.save_model(env_name=env_name,  postfix=model_post_fix+'_iter_'+str(iter),  folder=checkpoint_path)
+        # save model after the last iteration
+        trainer.save_model(env_name=env_name,  
+                           postfix=model_post_fix+'_iter_'+str(iter), # iteration index starts from 0 
+                           folder=checkpoint_path)
     else:
         ####
         # start evaluating
@@ -269,4 +268,4 @@ def experiment_mix_env(variant, mode):
         
 if __name__ == '__main__':
     config = parse_config(os.path.join(config_path, "ant_dir.yaml"))
-    experiment_mix_env(variant=config, mode="train") # mode: ['train', 'evaluation']
+    experiment_mix_env(variant=config, mode="train") # mode: ['train', 'eval']

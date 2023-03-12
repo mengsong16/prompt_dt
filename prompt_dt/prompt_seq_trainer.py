@@ -7,6 +7,7 @@ import time
 from wandb import env
 from prompt_dt.prompt_utils import flatten_prompt
 import copy
+import os
 
 
 class PromptSequenceTrainer:
@@ -56,6 +57,11 @@ class PromptSequenceTrainer:
         prompt, batch = self.get_prompt_batch()
         states, actions, rewards, dones, rtg, timesteps, attention_mask = batch
         action_target = torch.clone(actions)
+        # Note that 
+        # states.shape: [B, segment_length, state_dim]
+        # rtg.shape: [B, segment_length+1, 1]
+        # rtg[:,:-1].shape: [B, segment_length, 1]
+
         if no_prompt:
             state_preds, action_preds, reward_preds = self.model.forward(
                 states, actions, rewards, rtg[:,:-1], timesteps, attention_mask=attention_mask, prompt=None
@@ -75,8 +81,10 @@ class PromptSequenceTrainer:
         )
 
         self.optimizer.zero_grad()
+
         loss.backward()
         torch.nn.utils.clip_grad_norm_(self.model.parameters(), .25)
+
         self.optimizer.step()
 
         with torch.no_grad():
@@ -153,11 +161,14 @@ class PromptSequenceTrainer:
             states, actions, rewards, dones, rtg, timesteps, attention_mask = self.get_batch(batch_size_overwrite)
         else:
             states, actions, rewards, dones, rtg, timesteps, attention_mask = self.get_batch(self.batch_size)
+        
         action_target = torch.clone(actions)
-        # print('state shape after batch', states.shape)
-        # print('self.batch_size', self.batch_size)
-        # print('enter train step')
-        # input()
+
+        # Note that 
+        # states.shape: [B, segment_length, state_dim]
+        # rtg.shape: [B, segment_length+1, 1]
+        # rtg[:,:-1].shape: [B, segment_length, 1]
+        
         state_preds, action_preds, reward_preds = self.model.forward(
             states, actions, rewards, rtg[:,:-1], timesteps, attention_mask=attention_mask, prompt=self.prompt
         )
@@ -232,6 +243,10 @@ class PromptSequenceTrainer:
 
  
     def save_model(self, env_name, postfix, folder):
-        model_name = '/prompt_model_' + env_name + postfix
-        torch.save(self.model.state_dict(),folder+model_name)  # model save
-        print('======> Model saved to ', folder+model_name)
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+
+        model_name = env_name + postfix
+        save_path = os.path.join(folder, model_name)
+        torch.save(self.model.state_dict(), save_path)
+        print('======> Model saved to ', save_path)
