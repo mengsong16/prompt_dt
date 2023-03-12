@@ -1,6 +1,9 @@
 # environment
 base_env: 'ant_dir' # ['cheetah_dir', 'cheetah_vel', 'ant_dir', 'ML1-pick-place-v2']
 
+# algorithm name
+algorithm_name: 'prompt-dt'
+
 # dataset
 train_dataset_mode: 'expert'
 test_dataset_mode: 'expert'
@@ -11,23 +14,20 @@ average_state_mean: true # use state mean/std from all train+test data instead o
 pct_traj: 1.0
 
 # prompt
-prompt-episode:  1
-prompt-length: 5
-stochastic-prompt: true
+prompt_episode:  1
+prompt_length: 5
+stochastic_prompt: true
+no_state_normalize: false
 
-no-prompt: false
-no-r: false
-no-rtg: false
+no_prompt: false
+no_r: false
+no_rtg: false
+
 finetune: false
 finetune_steps: 10
 finetune_batch_size: 256
 finetune_opt: true
 finetune_lr: 1.0e-4
-no_state_normalize: false 
-
-evaluation: false
-render: false 
-load-path: None # choose a model when in evaluation mode
 
 # transformer
 embed_dim: 128
@@ -44,13 +44,21 @@ weight_decay: 1.0e-4
 warmup_steps: 10000  # 10000 * number of environments
 max_iters: 5000
 num_steps_per_iter: 10
-train_eval_interval: 500
+# test in training environments every n iterations
+train_eval_interval: 500 
+# test in test environments every n iterations
 test_eval_interval: 100
-save-interval: 500
+save_interval: 500
 num_eval_episodes: 50
 
+# evaluation
+load_path: "" # where to load the model
+
+# seed
+seed: 1
+
 # device
-device: 'cuda'
+device: 'cuda:0'
 
 # log
-log_to_wandb: true
+log_to_wandb: false

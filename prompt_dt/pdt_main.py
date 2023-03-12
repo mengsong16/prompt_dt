@@ -10,6 +10,7 @@ import random
 import sys
 import time
 import itertools
+import datetime
 
 from prompt_dt.prompt_decision_transformer import PromptDecisionTransformer
 from prompt_dt.prompt_seq_trainer import PromptSequenceTrainer
@@ -18,7 +19,7 @@ from prompt_dt.prompt_utils import get_prompt_batch, get_prompt, get_batch, get_
 from prompt_dt.prompt_utils import get_total_data_mean_std, load_data_prompt, process_info
 from prompt_dt.prompt_utils import eval_episodes, load_train_test_env_name_list, get_total_num_trajectory
 from prompt_dt.utils.path import *
-from prompt_dt.utils.other import parse_config
+from prompt_dt.utils.other import parse_config, seed_other
 
 from collections import namedtuple
 import json, pickle, os
@@ -26,13 +27,13 @@ import json, pickle, os
 def set_experiment_name():
     return
 
-def experiment_mix_env(
-        exp_prefix,
-        variant,
-):
+def experiment_mix_env(variant, mode):
     # print out variant
     print("=========================== variant ==================================")
     print(variant)
+
+    # algorithm name
+    algorithm_name = variant['algorithm_name']
     
     # device
     device = variant['device']
@@ -43,16 +44,21 @@ def experiment_mix_env(
     # base environment name
     base_env = variant['base_env']
 
+    # seed
+    seed = variant['seed']
+    seed_other(seed) # seed everything except environments
+
+
     ######
     # construct train and test environments
     ######
     train_env_name_list, test_env_name_list = load_train_test_env_name_list(base_env)
 
     # training envs
-    train_info, train_env_list = get_env_list(train_env_name_list, task_config_path, device)
+    train_info, train_env_list = get_env_list(train_env_name_list, task_config_path, device, seed)
     
     # testing envs
-    test_info, test_env_list = get_env_list(test_env_name_list, task_config_path, device)
+    test_info, test_env_list = get_env_list(test_env_name_list, task_config_path, device, seed)
 
     print("======> Loaded %d train envs"%(len(train_env_list)))
     print("======> Loaded %d test envs"%(len(test_env_list)))
@@ -87,7 +93,7 @@ def experiment_mix_env(
         train_total = list(itertools.chain.from_iterable(train_trajectories_list))
         test_total = list(itertools.chain.from_iterable(test_trajectories_list))
         total_traj_list = train_total + test_total
-        #print(len(total_traj_list))
+
         total_state_mean, total_state_std= get_total_data_mean_std(total_traj_list)
         variant['total_state_mean'] = total_state_mean
         variant['total_state_std'] = total_state_std
@@ -104,11 +110,8 @@ def experiment_mix_env(
     ######
     # construct dt model and trainer
     ######
-    exp_prefix = exp_prefix + '-' + base_env
     num_train_env = len(train_env_name_list)
-    group_name = f'{exp_prefix}-{str(num_train_env)}-env-{train_dataset_mode}'
-    exp_prefix = f'{group_name}-{random.randint(int(1e5), int(1e6) - 1)}'
-
+    
     # create model
     state_dim = test_env_list[0].observation_space.shape[0]
     act_dim = test_env_list[0].action_space.shape[0]
@@ -129,6 +132,8 @@ def experiment_mix_env(
     )
     model = model.to(device=device)
 
+    print("======> Model created")
+
     # create optimizer
     warmup_steps = variant['warmup_steps']
     optimizer = torch.optim.AdamW(
@@ -148,7 +153,8 @@ def experiment_mix_env(
         model=model,
         optimizer=optimizer,
         batch_size=batch_size,
-        get_batch=get_batch(train_trajectories_list[0], train_info[env_name_0], variant),
+        #get_batch=get_batch(train_trajectories_list[0], train_info[env_name_0], variant),
+        get_batch=get_batch,
         scheduler=scheduler,
         loss_fn=lambda s_hat, a_hat, r_hat, s, a, r: torch.mean((a_hat - a) ** 2),
         eval_fns=None,
@@ -156,19 +162,31 @@ def experiment_mix_env(
         get_prompt_batch=get_prompt_batch(train_trajectories_list, train_prompt_trajectories_list, train_info, variant, train_env_name_list)
     )
 
-    if not variant['evaluation']:
+    print("======> Trainer created")
+
+    if mode == 'train':
         ######
         # start training
         ######
+
+        # set experiment name
+        group_name = f'{base_env}-{str(num_train_env)}-env-{train_dataset_mode}'
+        now = datetime.datetime.now()
+        experiment_name = "s%d-"%(seed) + now.strftime("%Y%m%d-%H%M%S").lower() 
+
+        # create checkpoint folder
+        checkpoint_path = os.path.join(runs_path, group_name + "-" + experiment_name)
+        if not os.path.exists(checkpoint_path):
+            os.makedirs(checkpoint_path)
+        
+        # wandb initialize
         if log_to_wandb:
             wandb.init(
-                name=exp_prefix,
+                name=experiment_name,
                 group=group_name,
-                project='prompt-decision-transformer',
+                project=algorithm_name,
                 config=variant
             )
-            runs_path += wandb.run.name
-            os.mkdir(runs_path)
 
         # construct model post fix
         model_post_fix = '_TRAIN_'+variant['train_prompt_mode']+'_TEST_'+variant['test_prompt_mode']
@@ -179,17 +197,20 @@ def experiment_mix_env(
         if variant['no_r']:
             model_post_fix += '_NO_R'
         
+        print("======> Start training ...")
         for iter in range(variant['max_iters']):
+            # each iteration pick an training environment in turn
             env_id = iter % num_train_env
             env_name = train_env_name_list[env_id]
+
+            # train for n updates
             outputs = trainer.pure_train_iteration_mix(
                 num_steps=variant['num_steps_per_iter'], 
                 no_prompt=variant['no_prompt']
                 )
 
-            # start evaluation
+            # evaluate in test environments
             if iter % variant['test_eval_interval'] == 0:
-                # evaluate test
                 if not variant['finetune']:
                     test_eval_logs = trainer.eval_iteration_multienv(
                         get_prompt, test_prompt_trajectories_list,
@@ -205,34 +226,39 @@ def experiment_mix_env(
                         group='finetune-test', finetune_opt=variant['finetune_opt'])
                     outputs.update(test_eval_logs)
             
+            # evaluate in train environments
             if iter % variant['train_eval_interval'] == 0:
-                # evaluate train
                 train_eval_logs = trainer.eval_iteration_multienv(
                     get_prompt, train_prompt_trajectories_list,
                     eval_episodes, train_env_name_list, train_info, variant, train_env_list, iter_num=iter + 1, 
                     print_logs=True, no_prompt=variant['no_prompt'], group='train')
                 outputs.update(train_eval_logs)
 
+            # save model
             if iter % variant['save_interval'] == 0:
                 trainer.save_model(
                     env_name=env_name, 
                     postfix=model_post_fix+'_iter_'+str(iter), 
-                    folder=runs_path)
+                    folder=checkpoint_path)
 
             outputs.update({"global_step": iter}) # set global step as iteration
 
+            # log
             if log_to_wandb:
                 wandb.log(outputs)
         
-        trainer.save_model(env_name=env_name,  postfix=model_post_fix+'_iter_'+str(iter),  folder=runs_path)
-
+        # save model at the last
+        trainer.save_model(env_name=env_name,  postfix=model_post_fix+'_iter_'+str(iter),  folder=checkpoint_path)
     else:
         ####
         # start evaluating
         ####
+
+        # load model
         saved_model_path = os.path.join(runs_path, variant['load_path'])
         model.load_state_dict(torch.load(saved_model_path))
-        print('model initialized from: ', saved_model_path)
+        print('======> Model loaded from: ', saved_model_path)
+
         eval_iter_num = int(saved_model_path.split('_')[-1])
 
         eval_logs = trainer.eval_iteration_multienv(
@@ -243,4 +269,4 @@ def experiment_mix_env(
         
 if __name__ == '__main__':
     config = parse_config(os.path.join(config_path, "ant_dir.yaml"))
-    experiment_mix_env(exp_prefix='gym-experiment', variant=config)
+    experiment_mix_env(variant=config, mode="train") # mode: ['train', 'evaluation']

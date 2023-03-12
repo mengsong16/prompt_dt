@@ -90,9 +90,9 @@ class PromptSequenceTrainer:
                                 variant, env_list, iter_num=0, print_logs=False, 
                                 no_prompt=False, group='test-finetune',
                                 finetune_opt=False):
-        print('evaluate at tasks: ', env_name_list)
+        print('======> Evaluate at tasks: ', env_name_list)
+
         logs = dict()
-        print('start evaluating...')
         self.model.eval()
         self.current_model_dict = copy.deepcopy(self.model.state_dict())
 
@@ -142,6 +142,8 @@ class PromptSequenceTrainer:
             print(f'Iteration {iter_num}')
             for k, v in logs.items():
                 print(f'{k}: {v}')
+            
+            print('=' * 80)
 
         return logs
 
@@ -190,9 +192,10 @@ class PromptSequenceTrainer:
 
     def eval_iteration_multienv(self, get_prompt, prompt_trajectories_list, eval_episodes, env_name_list, info, 
                                 variant, env_list, iter_num=0, print_logs=False, no_prompt=False, group='test'):
-        print('evaluate at tasks: ', env_name_list)
+
+        print('======> Evaluate at tasks: ', env_name_list)
+
         logs = dict()
-        print('start evaluating...')
         self.model.eval()
 
         eval_start = time.time()
@@ -223,6 +226,7 @@ class PromptSequenceTrainer:
             print(f'Iteration {iter_num}')
             for k, v in logs.items():
                 print(f'{k}: {v}')
+            print('=' * 80)
 
         return logs
 
@@ -230,4 +234,4 @@ class PromptSequenceTrainer:
     def save_model(self, env_name, postfix, folder):
         model_name = '/prompt_model_' + env_name + postfix
         torch.save(self.model.state_dict(),folder+model_name)  # model save
-        print('model saved to ', folder+model_name)
+        print('======> Model saved to ', folder+model_name)

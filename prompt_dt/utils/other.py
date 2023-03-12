@@ -39,8 +39,6 @@ def get_device(config):
 
 def seed_env(env: gym.Env, seed: int) -> None:
     """Set the random seed of the environment."""
-    # if seed is None:
-    #     seed = np.random.randint(2 ** 31 - 1)
     seed = int(seed)
     env.seed(seed)
     env.action_space.seed(seed)

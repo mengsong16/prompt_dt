@@ -33,7 +33,7 @@ def load_train_test_env_name_list(env_name):
     return train_env_name_list, test_env_name_list
 
 # load a single environment with reward scale, maximum episode length, return target
-def gen_env(env_name, config_save_path):
+def gen_env(env_name, config_save_path, seed):
     if 'cheetah_dir' in env_name:
         if '0' in env_name:  # direction 1
             env = HalfCheetahDirEnv([{'direction': 1}], include_goal = False)
@@ -68,7 +68,7 @@ def gen_env(env_name, config_save_path):
         scale = 500.
     elif 'ML1-' in env_name: # metaworld ML1
         task_name = '-'.join(env_name.split('-')[1:-1])
-        ml1 = metaworld.ML1(task_name, seed=1) # Construct the benchmark, sampling tasks, note: our example datasets also have seed=1.
+        ml1 = metaworld.ML1(task_name, seed=seed) # Construct the benchmark, sampling tasks
         env = ml1.train_classes[task_name]()  # Create an environment with task
         task_idx = int(env_name.split('-')[-1])
         task = ml1.train_tasks[task_idx]
@@ -82,13 +82,13 @@ def gen_env(env_name, config_save_path):
 
 # load a list of environments
 # pack environment info
-def get_env_list(env_name_list, config_save_path, device):
+def get_env_list(env_name_list, config_save_path, device, seed):
     info = {} # store all the attributes for each env
     env_list = []
     
     for env_name in env_name_list:
         info[env_name] = {}
-        env, max_ep_len, env_targets, scale = gen_env(env_name=env_name, config_save_path=config_save_path)
+        env, max_ep_len, env_targets, scale = gen_env(env_name=env_name, config_save_path=config_save_path, seed=seed)
         info[env_name]['max_ep_len'] = max_ep_len
         info[env_name]['env_targets'] = env_targets
         info[env_name]['scale'] = scale
@@ -179,6 +179,7 @@ def get_prompt(prompt_trajectories, info, variant):
         rtg = torch.from_numpy(np.concatenate(rtg, axis=0)).to(dtype=torch.float32, device=device)
         timesteps = torch.from_numpy(np.concatenate(timesteps, axis=0)).to(dtype=torch.long, device=device)
         mask = torch.from_numpy(np.concatenate(mask, axis=0)).to(device=device)
+        
         return s, a, r, d, rtg, timesteps, mask
 
     return fn
@@ -247,61 +248,57 @@ def get_batch(trajectories, info, variant):
             p=p_sample,  # reweights so we sample according to trajectory length
         )
 
-        # split a trajectory batch into state, action, reward, discounted return, timestep, mask batch
-        # each element in the new batch is a trjectory segment, max_len: segment length which will be used to train sequence model
+        # split a trajectory batch into state, action, reward, return-to-go, timestep, mask
+        # each element in the new batch is a trajectory segment of length max_len
         s, a, r, d, rtg, timesteps, mask = [], [], [], [], [], [], []
         for i in range(batch_size):
             # current trajectory
             traj = trajectories[int(sorted_inds[batch_inds[i]])]
             # randomly pick a segment of length max_len from current trajectory starting from state si
             si = random.randint(0, traj['rewards'].shape[0] - 1)
-
-            # get sequences from dataset
-            # Note that if si+max_len exceed current traj length, only get elements until the episode ends
+            # Note that if si+max_len exceeds current trajectory length, only fetch elements until the episode ends
             s.append(traj['observations'][si:si + max_len].reshape(1, -1, state_dim))
             a.append(traj['actions'][si:si + max_len].reshape(1, -1, act_dim))
             r.append(traj['rewards'][si:si + max_len].reshape(1, -1, 1))
-            # d: dones (true or false)
             if 'terminals' in traj:
                 d.append(traj['terminals'][si:si + max_len].reshape(1, -1))
             else:
                 d.append(traj['dones'][si:si + max_len].reshape(1, -1))
-            # each timestep is the step index inside this segment: e.g. [5,6,7]
-            # s[-1].shape[1] <= max_len
+            # each timestep is the step index inside this segment 
+            # index starting from the begining of the trajectory: e.g. [5,6,7]
+            # s[-1].shape[1] is the length of current segment (must <= max_len)
             timesteps.append(np.arange(si, si + s[-1].shape[1]).reshape(1, -1))
-            # if actual index exceed predefined max episode length, use the last step index (i.e. index max_ep_len - 1) instead
+            # if actual index exceed predefined max episode length, use the last step index (i.e. index max_ep_len - 1)
             # timesteps[-1]: current segment
             # timesteps[-1] >= max_ep_len: for each step in current segment, check whether it exceeds max_ep_len
-            timesteps[-1][timesteps[-1] >= max_ep_len] = max_ep_len - 1  # padding cutoff
+            timesteps[-1][timesteps[-1] >= max_ep_len] = max_ep_len - 1
             # undiscounted return since gamma = 1
-            # first compute for each state until the episode ends, then cut off for the current segment
+            # first compute each state from si until the episode ends, then cut off for the current segment
             rtg.append(discount_cumsum(traj['rewards'][si:], gamma=1.)[:s[-1].shape[1] + 1].reshape(1, -1, 1))
-            # pad with a single 0 reward for the last state
-            if rtg[-1].shape[1] <= s[-1].shape[1]:  # always true??
+            # pad with a single 0 rtg for the last state
+            if rtg[-1].shape[1] <= s[-1].shape[1]:  # this is always true
                 rtg[-1] = np.concatenate([rtg[-1], np.zeros((1, 1, 1))], axis=1)
 
-            # padding and state + reward normalization
-            # tlen is the true length of current segment
+            # left pad, state normalization, scale return-to-go
+            # tlen is the true length of current segment (<= max_len)
             tlen = s[-1].shape[1]
 
-            # if tlen !=args.K:
-            #     print('tlen not equal to k')
-
-            # pad state with 0 if shorter than max_len
+            # left pad state with 0 if shorter than max_len
             s[-1] = np.concatenate([np.zeros((1, max_len - tlen, state_dim)), s[-1]], axis=1)
             # normalize state distribution to N(0,1)
             if not variant['no_state_normalize']:
                 s[-1] = (s[-1] - state_mean) / state_std
-            # pad action with -10 if shorter than max_len
+            # left pad action with -10 if shorter than max_len
             a[-1] = np.concatenate([np.ones((1, max_len - tlen, act_dim)) * -10., a[-1]], axis=1)
-            # pad reward with 0 if shorter than max_len
+            # left pad reward with 0 if shorter than max_len
+            # Note that reward is not scaled
             r[-1] = np.concatenate([np.zeros((1, max_len - tlen, 1)), r[-1]], axis=1)
-            # pad dones with 2 if shorter than max_len
+            # left pad done with 2 if shorter than max_len
             d[-1] = np.concatenate([np.ones((1, max_len - tlen)) * 2, d[-1]], axis=1)
-            # pad rtg with 0 if shorter than max_len
-            # scale rtg by scale
+            # left pad rtg with 0 if shorter than max_len
+            # divide rtg by reward scale
             rtg[-1] = np.concatenate([np.zeros((1, max_len - tlen, 1)), rtg[-1]], axis=1) / scale
-            # pad timestep with 0 if shorter than max_len
+            # left pad timestep with 0 if shorter than max_len
             timesteps[-1] = np.concatenate([np.zeros((1, max_len - tlen)), timesteps[-1]], axis=1)
             # mask = 1 (not done) until tlen, after that = 0 (done)
             mask.append(np.concatenate([np.zeros((1, max_len - tlen)), np.ones((1, tlen))], axis=1))
@@ -313,7 +310,7 @@ def get_batch(trajectories, info, variant):
         d = torch.from_numpy(np.concatenate(d, axis=0)).to(dtype=torch.long, device=device)
         rtg = torch.from_numpy(np.concatenate(rtg, axis=0)).to(dtype=torch.float32, device=device)
         timesteps = torch.from_numpy(np.concatenate(timesteps, axis=0)).to(dtype=torch.long, device=device)
-        mask = torch.from_numpy(np.concatenate(mask, axis=0)).to(device=device) # TODO: why mask only has several zeros
+        mask = torch.from_numpy(np.concatenate(mask, axis=0)).to(device=device)
 
         return s, a, r, d, rtg, timesteps, mask
 
@@ -397,7 +394,7 @@ def get_total_data_mean_std(trajectories):
     return state_mean, state_std
 
 # process trajectories from a specific environment
-def process_dataset(trajectories, reward_mode, env_name, dataset, pct_traj):
+def process_dataset(trajectories, reward_mode, env_name, dataset, pct_traj, verbose):
     # parse all path information into separate lists: states, traj_lens, returns
     # rewrite the reward mode of the trajectories
     states, traj_lens, returns = [], [], []
@@ -416,12 +413,13 @@ def process_dataset(trajectories, reward_mode, env_name, dataset, pct_traj):
 
     num_timesteps = sum(traj_lens)
 
-    print('=' * 50)
-    print(f'Processing data from environment: {env_name} {dataset}')
-    print(f'{len(traj_lens)} trajectories, {num_timesteps} timesteps found')
-    print(f'Average return: {np.mean(returns):.2f}, std: {np.std(returns):.2f}')
-    print(f'Max return: {np.max(returns):.2f}, min: {np.min(returns):.2f}')
-    print('=' * 50)
+    if verbose:
+        print('=' * 50)
+        print(f'Processing data from environment: {env_name} {dataset}')
+        print(f'{len(traj_lens)} trajectories, {num_timesteps} timesteps found')
+        print(f'Average return: {np.mean(returns):.2f}, std: {np.std(returns):.2f}')
+        print(f'Max return: {np.max(returns):.2f}, min: {np.min(returns):.2f}')
+        print('=' * 50)
 
     # only train/test on top pct_traj trajectories (for %BC experiment)
     num_timesteps = max(int(pct_traj * num_timesteps), 1)
@@ -447,10 +445,10 @@ def process_dataset(trajectories, reward_mode, env_name, dataset, pct_traj):
     # num_trajectories, sorted_inds, p_sample are for top trajectories
     return trajectories, num_trajectories, sorted_inds, p_sample, state_mean, state_std, reward_info
 
-
+# load trajectories and prompt trajectories
 def load_data_prompt(env_name_list, data_save_path, dataset, prompt_mode, base_env):
-    trajectories_list = []
-    prompt_trajectories_list = []
+    trajectories_list = [] # a list of trajectory list, each trajectory list comes from a specific environment
+    prompt_trajectories_list = [] # a list of trajectory list, each trajectory list comes from a specific environment
 
     trajectory_num = {}
     prompt_trajectory_num = {}
@@ -472,11 +470,12 @@ def load_data_prompt(env_name_list, data_save_path, dataset, prompt_mode, base_e
     return trajectories_list, prompt_trajectories_list, trajectory_num, prompt_trajectory_num
 
 # process train/test dataset
-def process_info(env_name_list, trajectories_list, info, reward_mode, dataset, pct_traj, variant):
+def process_info(env_name_list, trajectories_list, info, reward_mode, dataset, pct_traj, variant, verbose=False):
     for i, env_name in enumerate(env_name_list):
         # process trajectories from currect environment
         trajectories, num_trajectories, sorted_inds, p_sample, state_mean, state_std, reward_info = process_dataset(
-            trajectories=trajectories_list[i], reward_mode=reward_mode, env_name=env_name_list[i], dataset=dataset, pct_traj=pct_traj)
+            trajectories=trajectories_list[i], reward_mode=reward_mode, env_name=env_name_list[i], dataset=dataset, 
+            pct_traj=pct_traj, verbose=verbose)
         
         info[env_name]['num_trajectories'] = num_trajectories
         info[env_name]['sorted_inds'] = sorted_inds
