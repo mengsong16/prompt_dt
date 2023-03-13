@@ -32,9 +32,10 @@ def load_train_test_env_name_list(env_name):
     
     return train_env_name_list, test_env_name_list
 
-# load a single environment with reward scale, maximum episode length, return target
+# create a single environment with reward scale, maximum episode length, return target
 def gen_env(env_name, config_save_path, seed):
     if 'cheetah_dir' in env_name:
+        # include_goal = False: do not include goal in observations
         if '0' in env_name:  # direction 1
             env = HalfCheetahDirEnv([{'direction': 1}], include_goal = False)
         elif '1' in env_name: # direction -1
@@ -50,6 +51,7 @@ def gen_env(env_name, config_save_path, seed):
             task_info = pickle.load(f)
             assert len(task_info) == 1, f'Unexpected task info: {task_info}'
             tasks.append(task_info[0])
+        # include_goal = False: do not include goal in observations
         env = HalfCheetahVelEnv(tasks, include_goal = False)
         max_ep_len = 200
         env_targets = [0]
@@ -62,6 +64,7 @@ def gen_env(env_name, config_save_path, seed):
             task_info = pickle.load(f)
             assert len(task_info) == 1, f'Unexpected task info: {task_info}'
             tasks.append(task_info[0])
+        # include_goal = False: do not include goal in observations
         env = AntDirEnv(tasks, len(tasks), include_goal = False)
         max_ep_len = 200
         env_targets = [500]
@@ -72,7 +75,7 @@ def gen_env(env_name, config_save_path, seed):
         env = ml1.train_classes[task_name]()  # create an environment with task
         task_idx = int(env_name.split('-')[-1])
         task = ml1.train_tasks[task_idx]
-        env.set_task(task)  # Set task
+        env.set_task(task)  # set task
         max_ep_len = 500 
         env_targets= [int(650)]
         scale = 650.

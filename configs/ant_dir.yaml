@@ -13,21 +13,6 @@ reward_mode: 'normal' # ['normal', 'delayed']
 average_state_mean: true # use state mean/std from all train+test data instead of a specific environment
 pct_traj: 1.0
 
-# prompt
-prompt_episode:  1
-prompt_length: 5
-stochastic_prompt: true
-no_state_normalize: false
-no_prompt: false
-no_r: false
-no_rtg: false
-
-finetune: false
-finetune_steps: 10
-finetune_batch_size: 256
-finetune_opt: true
-finetune_lr: 1.0e-4
-
 # transformer
 embed_dim: 128
 n_layer: 3
@@ -35,6 +20,14 @@ n_head: 1
 activation_function: 'relu'
 dropout: 0.1
 K: 20  # input segment length
+no_r: false # deduct reward from rtg or not
+no_rtg: false # input includes rtg or not
+
+# prompt
+no_prompt: false
+prompt_episode:  1
+prompt_length: 5
+stochastic_prompt: true
 
 # training
 batch_size: 16
@@ -47,8 +40,18 @@ num_steps_per_iter: 10
 train_eval_interval: 500 
 # test in test environments every n iterations
 test_eval_interval: 100
-save_interval: 1 #500
+save_interval: 500
 num_eval_episodes: 50
+# normalize state or not
+# for both train and evaluation
+no_state_normalize: false 
+
+# finetune in test environments
+finetune: false
+finetune_steps: 10 # each test environment train for n steps
+finetune_batch_size: 256
+finetune_opt: true  # use finetune optimizer instead of model optimizer
+finetune_lr: 1.0e-4
 
 # evaluation
 load_path: "" # where to load the model

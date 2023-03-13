@@ -5,23 +5,24 @@ import numpy as np
 import torch
 import time
 
-
+# evaluate policy in a test environment
+# w or w/o prompt
 def prompt_evaluate_episode_rtg(
         env,
         state_dim,
         act_dim,
         model,
-        max_ep_len=1000,
-        scale=1000.,
-        state_mean=0.,
-        state_std=1.,
-        device='cuda',
-        target_return=None,
-        reward_mode='normal',
-        prompt=None,
-        no_r=False,
-        no_rtg=False,
-        no_state_normalize=False
+        max_ep_len,
+        scale,
+        state_mean,
+        state_std,
+        device,
+        target_return,
+        reward_mode,
+        prompt,
+        no_r,
+        no_rtg,
+        no_state_normalize
     ):
 
     model.eval()

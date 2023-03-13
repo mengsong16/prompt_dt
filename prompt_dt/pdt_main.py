@@ -55,7 +55,7 @@ def experiment_mix_env(variant, mode):
     # training envs
     train_info, train_env_list = get_env_list(train_env_name_list, task_config_path, device, seed)
     
-    # testing envs
+    # test envs
     test_info, test_env_list = get_env_list(test_env_name_list, task_config_path, device, seed)
 
     print("======> Loaded %d train envs"%(len(train_env_list)))
@@ -71,7 +71,9 @@ def experiment_mix_env(variant, mode):
 
     # load training dataset 
     train_trajectories_list, train_prompt_trajectories_list, train_trajectory_num, train_prompt_trajectory_num = load_data_prompt(train_env_name_list, data_path, train_dataset_mode, train_prompt_mode, base_env)
-    # load testing dataset
+    # load test dataset 
+    # test_trajectories are for test time finetune only
+    # test_prompt_trajectories are for test time prompt
     test_trajectories_list, test_prompt_trajectories_list, test_trajectory_num, test_prompt_trajectory_num = load_data_prompt(test_env_name_list, data_path, test_dataset_mode, test_prompt_mode, base_env)
 
     print("======> Loaded train trajectories: %d"%(get_total_num_trajectory(train_trajectory_num)))

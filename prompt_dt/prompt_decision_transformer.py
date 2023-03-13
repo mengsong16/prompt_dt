@@ -96,7 +96,7 @@ class PromptDecisionTransformer(nn.Module):
             (attention_mask, attention_mask, attention_mask), dim=1
         ).permute(0, 2, 1).reshape(batch_size, 3*seq_length)
 
-        # process prompt the same as d-t
+        # process prompt the same as dt
         if prompt is not None:
             prompt_states, prompt_actions, prompt_rewards, prompt_dones, prompt_returns_to_go, prompt_timesteps, prompt_attention_mask = prompt
             prompt_seq_length = prompt_states.shape[1]
@@ -174,20 +174,20 @@ class PromptDecisionTransformer(nn.Module):
             attention_mask = torch.cat([torch.zeros(self.max_length-states.shape[1]), torch.ones(states.shape[1])])
             attention_mask = attention_mask.to(dtype=torch.long, device=states.device).reshape(1, -1)
             # left pad all tokens to sequence length
-            # pad state with 0 if shorter than max_length
+            # left pad state with 0 if shorter than max_length
             states = torch.cat(
                 [torch.zeros((states.shape[0], self.max_length-states.shape[1], self.state_dim), device=states.device), states],
                 dim=1).to(dtype=torch.float32)
-            # pad action with 0 if shorter than max_length 
+            # left pad action with 0 if shorter than max_length 
             actions = torch.cat(
                 [torch.zeros((actions.shape[0], self.max_length - actions.shape[1], self.act_dim),
                              device=actions.device), actions],
                 dim=1).to(dtype=torch.float32)
-            # pad rtg with 0 if shorter than max_length
+            # left pad rtg with 0 if shorter than max_length
             returns_to_go = torch.cat(
                 [torch.zeros((returns_to_go.shape[0], self.max_length-returns_to_go.shape[1], 1), device=returns_to_go.device), returns_to_go],
                 dim=1).to(dtype=torch.float32)
-            # pad timestep with 0 if shorter than max_length
+            # left pad timestep with 0 if shorter than max_length
             timesteps = torch.cat(
                 [torch.zeros((timesteps.shape[0], self.max_length-timesteps.shape[1]), device=timesteps.device), timesteps],
                 dim=1

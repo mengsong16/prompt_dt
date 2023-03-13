@@ -28,8 +28,8 @@ class PromptSequenceTrainer:
 
         self.start_time = time.time()
 
-
-    def pure_train_iteration_mix(self, num_steps, no_prompt=False):
+    # train for one iteration
+    def pure_train_iteration_mix(self, num_steps, no_prompt):
 
         train_losses = []
         logs = dict()
@@ -52,7 +52,7 @@ class PromptSequenceTrainer:
 
         return logs
 
-
+    # train for one step
     def train_step_mix(self, no_prompt=False):
         prompt, batch = self.get_prompt_batch()
         states, actions, rewards, dones, rtg, timesteps, attention_mask = batch
@@ -102,6 +102,7 @@ class PromptSequenceTrainer:
 
         logs = dict()
         self.model.eval()
+        # model before finetune
         self.current_model_dict = copy.deepcopy(self.model.state_dict())
 
         eval_start = time.time()
@@ -113,24 +114,28 @@ class PromptSequenceTrainer:
             )
         else:
             fintune_optimizer = None
+        
         for env_id, env_name in enumerate(env_name_list):
             self.eval_fns = [eval_episodes(tar, info[env_name], variant, env_list[env_id], env_name) for tar in info[env_name]['env_targets']]
             self.get_prompt = get_prompt(test_prompt_trajectories_list[env_id], info[env_name], variant)
             self.get_batch = get_batch(test_trajectories_list[env_id], info[env_name], variant)
             if not no_prompt:
-                self.prompt = flatten_prompt(self.get_prompt(), batch_size=1) # one prompt for the whole batch now
+                # one prompt for the whole batch now
+                self.prompt = flatten_prompt(self.get_prompt(), batch_size=1) 
             else:
                 self.prompt = None
 
+            # finetune
             self.model.train()
-            # finetune the model on the data for this task 
+            # finetune the model on the test data for current test environment
             finetune_losses = []
             for _ in range(variant['finetune_steps']):
-                finetune_loss = self.train_step(
+                finetune_loss = self.finetune_step(
                     batch_size_overwrite=variant['finetune_batch_size'],
                     optimizer=fintune_optimizer)
                 finetune_losses.append(finetune_loss)
 
+            # evaluation
             self.model.eval()
             # need to sample eval_fn and prompt together 
             for eval_fn in self.eval_fns:
@@ -138,6 +143,7 @@ class PromptSequenceTrainer:
                 for k, v in outputs.items():
                     logs[f'{group}-evaluation/{k}'] = v
             
+            # recover the model before finetune
             self.model.load_state_dict(self.current_model_dict)
 
         logs['time/evaluation'] = time.time() - eval_start
@@ -156,11 +162,9 @@ class PromptSequenceTrainer:
         return logs
 
 
-    def train_step(self, batch_size_overwrite=None, optimizer=None):
-        if batch_size_overwrite is not None:
-            states, actions, rewards, dones, rtg, timesteps, attention_mask = self.get_batch(batch_size_overwrite)
-        else:
-            states, actions, rewards, dones, rtg, timesteps, attention_mask = self.get_batch(self.batch_size)
+    def finetune_step(self, batch_size_overwrite, optimizer=None):
+        # use given batch_size instead of batch size for regular training
+        states, actions, rewards, dones, rtg, timesteps, attention_mask = self.get_batch(batch_size_overwrite)
         
         action_target = torch.clone(actions)
 
