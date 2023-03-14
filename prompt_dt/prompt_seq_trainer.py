@@ -17,14 +17,15 @@ class PromptSequenceTrainer:
         self.model = model
         self.optimizer = optimizer
         self.batch_size = batch_size
-        self.get_batch = get_batch
+        self.get_batch = get_batch # function with no parameters
         self.loss_fn = loss_fn
         self.scheduler = scheduler
         self.eval_fns = [] if eval_fns is None else eval_fns
         self.diagnostics = dict()
-        self.get_prompt = get_prompt
-        self.prompt = self.get_prompt() # sample prompt data when initialization
-        self.get_prompt_batch = get_prompt_batch
+        self.get_prompt = get_prompt # function with parameters
+        self.prompt = self.get_prompt() # sample a single prompt when initialization
+        # get_prompt_batch = get_prompt_batch(train_trajectories_list, train_prompt_trajectories_list, train_info, variant, train_env_name_list)
+        self.get_prompt_batch = get_prompt_batch # function with parameters
 
         self.start_time = time.time()
 
@@ -53,10 +54,12 @@ class PromptSequenceTrainer:
         return logs
 
     # train for one step
-    def train_step_mix(self, no_prompt=False):
+    def train_step_mix(self, no_prompt):
+        # get trajectory prompt batch and trajectory batch
         prompt, batch = self.get_prompt_batch()
         states, actions, rewards, dones, rtg, timesteps, attention_mask = batch
         action_target = torch.clone(actions)
+        
         # Note that 
         # states.shape: [B, segment_length, state_dim]
         # rtg.shape: [B, segment_length+1, 1]
@@ -83,7 +86,7 @@ class PromptSequenceTrainer:
         self.optimizer.zero_grad()
 
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.model.parameters(), .25)
+        torch.nn.utils.clip_grad_norm_(self.model.parameters(), .25) # grad_clip = 0.25 in original dt paper
 
         self.optimizer.step()
 
@@ -117,17 +120,19 @@ class PromptSequenceTrainer:
         
         for env_id, env_name in enumerate(env_name_list):
             self.eval_fns = [eval_episodes(tar, info[env_name], variant, env_list[env_id], env_name) for tar in info[env_name]['env_targets']]
+            # get one prompt: [number_segments, segment_length, state_dim]
             self.get_prompt = get_prompt(test_prompt_trajectories_list[env_id], info[env_name], variant)
             self.get_batch = get_batch(test_trajectories_list[env_id], info[env_name], variant)
             if not no_prompt:
                 # one prompt for the whole batch now
+                # concatenate prompt segments into one: [1, prompt_length, state_dim]
                 self.prompt = flatten_prompt(self.get_prompt(), batch_size=1) 
             else:
                 self.prompt = None
 
             # finetune
             self.model.train()
-            # finetune the model on the test data for current test environment
+            # finetune the model on the test trajectories for current test environment
             finetune_losses = []
             for _ in range(variant['finetune_steps']):
                 finetune_loss = self.finetune_step(
@@ -161,7 +166,7 @@ class PromptSequenceTrainer:
 
         return logs
 
-
+    # finetune for one step
     def finetune_step(self, batch_size_overwrite, optimizer=None):
         # use given batch_size instead of batch size for regular training
         states, actions, rewards, dones, rtg, timesteps, attention_mask = self.get_batch(batch_size_overwrite)
@@ -192,7 +197,7 @@ class PromptSequenceTrainer:
             optimizer.zero_grad()
 
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.model.parameters(), .25)
+        torch.nn.utils.clip_grad_norm_(self.model.parameters(), .25) # grad_clip = 0.25 in original dt paper
 
         if optimizer is None:
             self.optimizer.step()
@@ -218,8 +223,10 @@ class PromptSequenceTrainer:
             
             # need to sample eval_fn and prompt together 
             self.eval_fns = [eval_episodes(tar, info[env_name], variant, env_list[env_id], env_name) for tar in info[env_name]['env_targets']]
+            # get one prompt: [number_segments, segment_length, state_dim]
             self.get_prompt = get_prompt(prompt_trajectories_list[env_id], info[env_name], variant)
             if not no_prompt:
+                # concatenate prompt segments into one: [1, prompt_length, state_dim]
                 self.prompt = flatten_prompt(self.get_prompt(), batch_size=1)
                 # prompt_states, prompt_actions, prompt_rewards, prompt_dones, prompt_returns_to_go, prompt_timesteps, prompt_attention_mask = self.prompt
                 # print('======get trainer.prompt', prompt_states.shape)

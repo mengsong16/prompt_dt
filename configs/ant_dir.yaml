@@ -1,5 +1,5 @@
 # environment
-base_env: 'ant_dir' # ['cheetah_dir', 'cheetah_vel', 'ant_dir', 'ML1-pick-place-v2']
+base_env: 'cheetah_dir' # ['cheetah_dir', 'cheetah_vel', 'ant_dir', 'ML1-pick-place-v2']
 
 # algorithm name
 algorithm_name: 'prompt-dt'
@@ -10,7 +10,7 @@ test_dataset_mode: 'expert'
 train_prompt_mode: 'expert'
 test_prompt_mode: 'expert'
 reward_mode: 'normal' # ['normal', 'delayed']
-average_state_mean: true # use state mean/std from all train+test data instead of a specific environment
+average_state_mean: true # compute state mean/std from all train+test data instead of a specific environment
 pct_traj: 1.0
 
 # transformer
@@ -20,17 +20,22 @@ n_head: 1
 activation_function: 'relu'
 dropout: 0.1
 K: 20  # input segment length
+# the following are for both train trajectory and prompt trajectory
 no_r: false # deduct reward from rtg or not
 no_rtg: false # input includes rtg or not
 
 # prompt
 no_prompt: false
-prompt_episode:  1
-prompt_length: 5
-stochastic_prompt: true
+prompt_method: "traj_prompt" #["traj_prompt", "goal_prompt"]
+traj_prompt:
+  prompt_episode:  1
+  prompt_length: 5 #2
+  # if true randomly select prompt trajectory
+  # otherwise prefer prompt trajectory with higher return
+  stochastic_prompt: true 
 
 # training
-batch_size: 16
+batch_size: 16 #64 # number of trajectory segments
 learning_rate: 1.0e-4
 weight_decay: 1.0e-4
 warmup_steps: 10000  # 10000 * number of environments
@@ -44,9 +49,10 @@ save_interval: 500
 num_eval_episodes: 50
 # normalize state or not
 # for both train and evaluation
+# for both train trajectory and prompt trajectory 
 no_state_normalize: false 
 
-# finetune in test environments
+# finetune on given test trajectories
 finetune: false
 finetune_steps: 10 # each test environment train for n steps
 finetune_batch_size: 256

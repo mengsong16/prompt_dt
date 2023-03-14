@@ -110,8 +110,16 @@ def get_total_num_trajectory(trajectory_num):
     return total_num
 
 """ prompts """
+# reshape prompt to a new batch_size
+# [old_batch_size, segment_length, state_dim] --> [new_batch_size, -1, state_dim]
+# -1: old_batch_size * segment_length / new_batch_size
 def flatten_prompt(prompt, batch_size):
     p_s, p_a, p_r, p_d, p_rtg, p_timesteps, p_mask = prompt
+    # p_s: [old_batch_size, segment_length, state_dim]=[16, 5, 27]
+    # if new_batch_size == old_batch_size, nothing changes
+    # if new_batch_size == 1 --> concatenate all segments into one
+    # ---> [1, old_batch_size * segment_length, state_dim]
+    
     p_s = p_s.reshape((batch_size, -1, p_s.shape[-1]))
     p_a = p_a.reshape((batch_size, -1, p_a.shape[-1]))
     p_r = p_r.reshape((batch_size, -1, p_r.shape[-1]))
@@ -122,33 +130,34 @@ def flatten_prompt(prompt, batch_size):
     p_mask = p_mask.reshape((batch_size, -1)) 
     return p_s, p_a, p_r, p_d, p_rtg, p_timesteps, p_mask
 
-
+# get one trajectory prompt
 def get_prompt(prompt_trajectories, info, variant):
     num_trajectories, p_sample, sorted_inds = info['num_trajectories'], info['p_sample'], info['sorted_inds']
     max_ep_len, state_mean, state_std, scale = info['max_ep_len'], info['state_mean'], info['state_std'], info['scale']
     state_dim, act_dim, device = info['state_dim'], info['act_dim'], info['device']
-    num_episodes, max_len = variant['prompt_episode'], variant['prompt_length']
+    num_episodes, max_len = variant['traj_prompt']['prompt_episode'], variant['traj_prompt']['prompt_length']
 
     def fn(sample_size=1):
-        # random sample prompts with fixed length (prompt-length) in num episodes (prompt-episode)
+        # random sample a batch of prompt trajectories from the whole trajectory pool (p_sample=1)
+        # batch_size = num_episodes*sample_size = num_episodes
         batch_inds = np.random.choice(
             np.arange(len(prompt_trajectories)),
             size=int(num_episodes*sample_size),
             replace=True,
         )
 
-        # crop a segement from each trajectory in the batch
+        # crop a segement of fixed length (prompt-length) from each prompt trajectory in the batch
         s, a, r, d, rtg, timesteps, mask = [], [], [], [], [], [], []
         for i in range(int(num_episodes*sample_size)):
-            if variant["stochastic_prompt"]:
-                # random select a trajectory from the pool
+            if variant["traj_prompt"]["stochastic_prompt"]:
+                # randomly select a trajectory from the pool
                 traj = prompt_trajectories[int(batch_inds[i])] 
             else:
-                # select the trajectory with the highest return
+                # select the trajectory with the return from highest to lowest
                 traj = prompt_trajectories[int(sorted_inds[-i])] 
 
             # si is the beginning of the last segment of length max_len in the trajectory
-            si = max(0, traj['rewards'].shape[0] - max_len -1) # select the last traj with length max_len
+            si = max(0, traj['rewards'].shape[0] - max_len -1) # select the last part of the traj with length max_len
 
             # append the segment
             append_new_segment(traj, si, max_len, max_ep_len, 
@@ -163,7 +172,7 @@ def get_prompt(prompt_trajectories, info, variant):
 
     return fn
 
-
+# get a batch of trajectories and trajectory prompts
 def get_prompt_batch(trajectories_list, prompt_trajectories_list, info, variant, train_env_name_list):
     per_env_batch_size = variant['batch_size']
 
@@ -171,12 +180,19 @@ def get_prompt_batch(trajectories_list, prompt_trajectories_list, info, variant,
         p_s_list, p_a_list, p_r_list, p_d_list, p_rtg_list, p_timesteps_list, p_mask_list = [], [], [], [], [], [], []
         s_list, a_list, r_list, d_list, rtg_list, timesteps_list, mask_list = [], [], [], [], [], [], []
         for env_id, env_name in enumerate(train_env_name_list):
+            # set up get prompt function
+            # crop trajectory prompt from prompt trajectories
             if prompt_trajectories_list:
                 get_prompt_fn = get_prompt(prompt_trajectories_list[env_id], info[env_name], variant)
+            # crop trajectory prompt from regular trajectories
             else:
                 get_prompt_fn = get_prompt(trajectories_list[env_id], info[env_name], variant)
+            
+            # set up get batch function
             get_batch_fn = get_batch(trajectories_list[env_id], info[env_name], variant) 
-            prompt = flatten_prompt(get_prompt_fn(batch_size), batch_size)
+            
+            # get a batch of trajectory prompts
+            prompt = flatten_prompt(get_prompt_fn(batch_size), batch_size) # flatten_prompt changes nothing
             p_s, p_a, p_r, p_d, p_rtg, p_timesteps, p_mask = prompt
             p_s_list.append(p_s)
             p_a_list.append(p_a)
@@ -186,6 +202,7 @@ def get_prompt_batch(trajectories_list, prompt_trajectories_list, info, variant,
             p_timesteps_list.append(p_timesteps)
             p_mask_list.append(p_mask)
 
+            # get a batch of regular trajectories
             batch = get_batch_fn(batch_size=batch_size)
             s, a, r, d, rtg, timesteps, mask = batch
             if variant['no_r']:
@@ -200,12 +217,14 @@ def get_prompt_batch(trajectories_list, prompt_trajectories_list, info, variant,
             timesteps_list.append(timesteps)
             mask_list.append(mask)
 
+        # from numpy to tensor
         p_s, p_a, p_r, p_d = torch.cat(p_s_list, dim=0), torch.cat(p_a_list, dim=0), torch.cat(p_r_list, dim=0), torch.cat(p_d_list, dim=0)
         p_rtg, p_timesteps, p_mask = torch.cat(p_rtg_list, dim=0), torch.cat(p_timesteps_list, dim=0), torch.cat(p_mask_list, dim=0)
         s, a, r, d = torch.cat(s_list, dim=0), torch.cat(a_list, dim=0), torch.cat(r_list, dim=0), torch.cat(d_list, dim=0)
         rtg, timesteps, mask = torch.cat(rtg_list, dim=0), torch.cat(timesteps_list, dim=0), torch.cat(mask_list, dim=0)
         prompt = p_s, p_a, p_r, p_d, p_rtg, p_timesteps, p_mask
         batch = s, a, r, d, rtg, timesteps, mask
+
         return prompt, batch
     return fn
 
@@ -279,7 +298,7 @@ def append_new_segment(traj, si, max_len, max_ep_len,
     # mask = 1 (not done) until tlen, after that = 0 (done)
     mask.append(np.concatenate([np.zeros((1, max_len - tlen)), np.ones((1, tlen))], axis=1))
 
-
+# get a batch of regular trajectories
 def get_batch(trajectories, info, variant):
     num_trajectories, p_sample, sorted_inds = info['num_trajectories'], info['p_sample'], info['sorted_inds']
     max_ep_len, state_mean, state_std, scale = info['max_ep_len'], info['state_mean'], info['state_std'], info['scale']
@@ -287,7 +306,7 @@ def get_batch(trajectories, info, variant):
     batch_size, K = variant['batch_size'], variant['K']
 
     def fn(batch_size=batch_size, max_len=K):
-        # sample batch_size trajectories from the trajectory pool with replacement
+        # randomly sample batch_size trajectories from the top trajectory pool with replacement
         # prefer long trajectory
         batch_inds = np.random.choice(
             np.arange(num_trajectories),
@@ -316,12 +335,12 @@ def get_batch(trajectories, info, variant):
 
     return fn
 
-
+# get a batch of trajectories for test time finetune
 def get_batch_finetune(trajectories, info, variant):
     num_trajectories, p_sample, sorted_inds = info['num_trajectories'], info['p_sample'], info['sorted_inds']
     max_ep_len, state_mean, state_std, scale = info['max_ep_len'], info['state_mean'], info['state_std'], info['scale']
     state_dim, act_dim, device = info['state_dim'], info['act_dim'], info['device']
-    batch_size, K = variant['batch_size'], variant['prompt_length'] # use the same amount of data for funetuning
+    batch_size, K = variant['batch_size'], variant['traj_prompt']['prompt_length'] # use the same amount of data for funetuning
 
     def fn(batch_size=batch_size, max_len=K):
         # sample batch_size trajectories from the trajectory pool with replacement
@@ -338,7 +357,7 @@ def get_batch_finetune(trajectories, info, variant):
         for i in range(batch_size):
             # current trajectory
             traj = trajectories[int(sorted_inds[batch_inds[i]])]
-            # si is in the last segment of length max_len in the trajectory
+            # si is a random position in the last segment of length max_len in the trajectory
             si = random.randint(0, traj['rewards'].shape[0] - 1)
             si = max(0, traj['rewards'].shape[0] - max_len -1) 
 

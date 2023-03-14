@@ -36,7 +36,7 @@ def prompt_evaluate_episode_rtg(
     if reward_mode == 'noise':
         state = state + np.random.normal(0, 0.1, size=state.shape)
 
-    # we keep all the histories on the device
+    # we keep all the histories of states, rewards, actions, timesteps on the device
     # note that the latest action and reward will be "padding"
     states = torch.from_numpy(state).reshape(1, state_dim).to(device=device, dtype=torch.float32)
     actions = torch.zeros((0, act_dim), device=device, dtype=torch.float32)
@@ -46,13 +46,11 @@ def prompt_evaluate_episode_rtg(
     target_return = torch.tensor(ep_return, device=device, dtype=torch.float32).reshape(1, 1)
     timesteps = torch.tensor(0, device=device, dtype=torch.long).reshape(1, 1)
 
-    sim_states = []
-
     episode_return, episode_length = 0, 0
     for t in range(max_ep_len):
         # print('evaluate/t', t)
         
-        # add padding
+        # initialize action and reward history as a single 0
         actions = torch.cat([actions, torch.zeros((1, act_dim), device=device)], dim=0)
         rewards = torch.cat([rewards, torch.zeros(1, device=device)])
         if no_state_normalize:
@@ -74,25 +72,34 @@ def prompt_evaluate_episode_rtg(
                 prompt=prompt
             )
             
+        # append new action to the rightmost location of the action sequence
         actions[-1] = action
         action = action.detach().cpu().numpy()
 
         state, reward, done, infos = env.step(action)
 
         cur_state = torch.from_numpy(state).to(device=device).reshape(1, state_dim)
+        # append new state to the rightmost location of the state history
         states = torch.cat([states, cur_state], dim=0)
+        # append new reward to the rightmost location of the reward history
         rewards[-1] = reward
         if no_r:
             rewards[-1] = 0.0
 
+        # append new rtg (pred_return) to the rightmost location of the rtg history
+        # target_return[0,-1] is the current last rtg in the history
+        # if delayed, the rtg history will be a sequence with constant rtg until the episode ends
         if reward_mode != 'delayed':
             pred_return = target_return[0,-1] - (reward/scale)
         else:
             pred_return = target_return[0,-1]
+
         target_return = torch.cat(
             [target_return, pred_return.reshape(1, 1)], dim=1)
+        # if no return-to-go, use a constant target return
         if no_rtg:
             target_return = torch.ones_like(target_return)*ep_return
+        # append new timestep to the rightmost location of the timestep history
         timesteps = torch.cat(
             [timesteps,
              torch.ones((1, 1), device=device, dtype=torch.long) * (t+1)], dim=1)
