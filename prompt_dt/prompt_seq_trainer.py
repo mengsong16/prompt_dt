@@ -12,20 +12,16 @@ import os
 
 class PromptSequenceTrainer:
 
-    def __init__(self, model, optimizer, batch_size, loss_fn,
+    def __init__(self, model, optimizer, loss_fn,
                  scheduler=None, eval_fns=None, get_prompt_batch_fn=None):
         self.model = model
         self.optimizer = optimizer
-        self.batch_size = batch_size
         self.loss_fn = loss_fn
         self.scheduler = scheduler
         self.eval_fns = [] if eval_fns is None else eval_fns
-        self.diagnostics = dict()
 
         # get_prompt_batch_fn = get_prompt_batch(train_trajectories_list, train_prompt_trajectories_list, train_info, variant, train_env_name_list)
         self.get_prompt_batch_fn = get_prompt_batch_fn # function with parameters
-
-        self.start_time = time.time()
 
     # train for one iteration
     def pure_train_iteration_mix(self, num_steps, no_prompt):
@@ -45,9 +41,6 @@ class PromptSequenceTrainer:
         logs['time/training'] = time.time() - train_start
         logs['training/train_loss_mean'] = np.mean(train_losses)
         logs['training/train_loss_std'] = np.std(train_losses)
-
-        for k in self.diagnostics:
-            logs[k] = self.diagnostics[k]
 
         return logs
 
@@ -88,16 +81,13 @@ class PromptSequenceTrainer:
 
         self.optimizer.step()
 
-        with torch.no_grad():
-            self.diagnostics['training/action_error'] = torch.mean((action_preds-action_target)**2).detach().cpu().item()
-
         return loss.detach().cpu().item()
 
 
     def eval_iteration_multienv(self, get_prompt_fn, prompt_trajectories_list, 
                                 eval_episodes, env_name_list, info, 
-                                variant, env_list, iter_num=0, 
-                                print_logs=False, no_prompt=False, group='test'):
+                                variant, env_list, iter_num, 
+                                print_logs, no_prompt, group):
 
         print('======> Evaluate at tasks: ', env_name_list)
 
@@ -114,21 +104,18 @@ class PromptSequenceTrainer:
                 current_get_prompt_fn = get_prompt_fn(prompt_trajectories_list[env_id], info[env_name], variant)
                 # get a single prompt since we evalute one episode at one time: [number_segments, segment_length, state_dim]
                 # concatenate its prompt segments into: [1, prompt_length, state_dim]
-                self.prompt = flatten_prompt(current_get_prompt_fn(), batch_size=1)
+                current_prompt = flatten_prompt(current_get_prompt_fn(), batch_size=1)
             else:
-                self.prompt = None
+                current_prompt = None
             
             # evaluate in current environment for num_eval_episodes
             for eval_fn in self.eval_fns:
                 # get return mean and std
-                outputs = eval_fn(self.model, prompt=self.prompt)
+                outputs = eval_fn(self.model, prompt=current_prompt)
                 for k, v in outputs.items():
                     logs[f'{group}-evaluation/{k}'] = v
 
         logs['time/evaluation'] = time.time() - eval_start
-
-        for k in self.diagnostics:
-            logs[k] = self.diagnostics[k]
 
         if print_logs:
             print('=' * 80)

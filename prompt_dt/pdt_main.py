@@ -150,7 +150,6 @@ def experiment_mix_env(variant, mode):
     trainer = PromptSequenceTrainer(
         model=model,
         optimizer=optimizer,
-        batch_size=int(variant['batch_size']),
         scheduler=scheduler,
         loss_fn=lambda s_hat, a_hat, r_hat, s, a, r: torch.mean((a_hat - a) ** 2),
         eval_fns=None,
