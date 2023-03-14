@@ -12,19 +12,17 @@ import os
 
 class PromptSequenceTrainer:
 
-    def __init__(self, model, optimizer, batch_size, get_batch_fn, loss_fn,
-                 scheduler=None, eval_fns=None, get_prompt_fn=None, get_prompt_batch_fn=None):
+    def __init__(self, model, optimizer, batch_size, loss_fn,
+                 scheduler=None, eval_fns=None, get_prompt_batch_fn=None):
         self.model = model
         self.optimizer = optimizer
         self.batch_size = batch_size
-        self.get_batch_fn = get_batch_fn # function with no parameters
         self.loss_fn = loss_fn
         self.scheduler = scheduler
         self.eval_fns = [] if eval_fns is None else eval_fns
         self.diagnostics = dict()
-        self.get_prompt_fn = get_prompt_fn # function with parameters
-        self.prompt = self.get_prompt_fn() # sample a single prompt when initialization
-        # get_prompt_batch = get_prompt_batch(train_trajectories_list, train_prompt_trajectories_list, train_info, variant, train_env_name_list)
+
+        # get_prompt_batch_fn = get_prompt_batch(train_trajectories_list, train_prompt_trajectories_list, train_info, variant, train_env_name_list)
         self.get_prompt_batch_fn = get_prompt_batch_fn # function with parameters
 
         self.start_time = time.time()
@@ -113,14 +111,16 @@ class PromptSequenceTrainer:
             
             if not no_prompt:
                 # set up get one prompt fn and its parameters
-                self.get_prompt_fn = get_prompt_fn(prompt_trajectories_list[env_id], info[env_name], variant)
+                current_get_prompt_fn = get_prompt_fn(prompt_trajectories_list[env_id], info[env_name], variant)
                 # get a single prompt since we evalute one episode at one time: [number_segments, segment_length, state_dim]
                 # concatenate its prompt segments into: [1, prompt_length, state_dim]
-                self.prompt = flatten_prompt(self.get_prompt_fn(), batch_size=1)
+                self.prompt = flatten_prompt(current_get_prompt_fn(), batch_size=1)
             else:
                 self.prompt = None
             
+            # evaluate in current environment for num_eval_episodes
             for eval_fn in self.eval_fns:
+                # get return mean and std
                 outputs = eval_fn(self.model, prompt=self.prompt)
                 for k, v in outputs.items():
                     logs[f'{group}-evaluation/{k}'] = v

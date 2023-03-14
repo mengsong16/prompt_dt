@@ -151,11 +151,9 @@ def experiment_mix_env(variant, mode):
         model=model,
         optimizer=optimizer,
         batch_size=int(variant['batch_size']),
-        get_batch_fn=get_batch,
         scheduler=scheduler,
         loss_fn=lambda s_hat, a_hat, r_hat, s, a, r: torch.mean((a_hat - a) ** 2),
         eval_fns=None,
-        get_prompt_fn=get_prompt(train_prompt_trajectories_list[0], train_info[train_env_name_list[0]], variant),
         get_prompt_batch_fn=get_prompt_batch(train_trajectories_list, train_prompt_trajectories_list, train_info, variant, train_env_name_list)
     )
 
@@ -183,7 +181,7 @@ def experiment_mix_env(variant, mode):
                 config=variant
             )
 
-        # construct model pre fix
+        # construct model prefix
         if variant['no_prompt']:
             model_pre_fix = 'no_prompt'
         else:
