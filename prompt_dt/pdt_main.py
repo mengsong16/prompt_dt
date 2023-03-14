@@ -151,12 +151,12 @@ def experiment_mix_env(variant, mode):
         model=model,
         optimizer=optimizer,
         batch_size=int(variant['batch_size']),
-        get_batch=get_batch,
+        get_batch_fn=get_batch,
         scheduler=scheduler,
         loss_fn=lambda s_hat, a_hat, r_hat, s, a, r: torch.mean((a_hat - a) ** 2),
         eval_fns=None,
-        get_prompt=get_prompt(train_prompt_trajectories_list[0], train_info[train_env_name_list[0]], variant),
-        get_prompt_batch=get_prompt_batch(train_trajectories_list, train_prompt_trajectories_list, train_info, variant, train_env_name_list)
+        get_prompt_fn=get_prompt(train_prompt_trajectories_list[0], train_info[train_env_name_list[0]], variant),
+        get_prompt_batch_fn=get_prompt_batch(train_trajectories_list, train_prompt_trajectories_list, train_info, variant, train_env_name_list)
     )
 
     print("======> Trainer created")
@@ -211,12 +211,14 @@ def experiment_mix_env(variant, mode):
                 if not variant['finetune']:
                     test_eval_logs = trainer.eval_iteration_multienv(
                         get_prompt, test_prompt_trajectories_list,
-                        eval_episodes, test_env_name_list, test_info, variant, test_env_list, iter_num=iter + 1, 
+                        eval_episodes, test_env_name_list, test_info, variant, 
+                        test_env_list, iter_num=iter + 1, 
                         print_logs=True, no_prompt=variant['no_prompt'], group='test')
                     outputs.update(test_eval_logs)
                 else:
                     test_eval_logs = trainer.finetune_eval_iteration_multienv(
-                        get_prompt, get_batch_finetune, test_prompt_trajectories_list, test_trajectories_list,
+                        get_prompt, get_batch_finetune, 
+                        test_prompt_trajectories_list, test_trajectories_list,
                         eval_episodes, test_env_name_list, test_info, 
                         variant, test_env_list, iter_num=iter + 1, 
                         print_logs=True, no_prompt=variant['no_prompt'], 
@@ -227,7 +229,8 @@ def experiment_mix_env(variant, mode):
             if iter % variant['train_eval_interval'] == 0:
                 train_eval_logs = trainer.eval_iteration_multienv(
                     get_prompt, train_prompt_trajectories_list,
-                    eval_episodes, train_env_name_list, train_info, variant, train_env_list, iter_num=iter + 1, 
+                    eval_episodes, train_env_name_list, train_info, variant, 
+                    train_env_list, iter_num=iter + 1, 
                     print_logs=True, no_prompt=variant['no_prompt'], group='train')
                 outputs.update(train_eval_logs)
 
@@ -262,7 +265,8 @@ def experiment_mix_env(variant, mode):
 
         eval_logs = trainer.eval_iteration_multienv(
                     get_prompt, test_prompt_trajectories_list,
-                    eval_episodes, test_env_name_list, test_info, variant, test_env_list, iter_num=eval_iter_num, 
+                    eval_episodes, test_env_name_list, test_info, variant, 
+                    test_env_list, iter_num=eval_iter_num, 
                     print_logs=True, no_prompt=variant['no_prompt'], group='eval')
 
         

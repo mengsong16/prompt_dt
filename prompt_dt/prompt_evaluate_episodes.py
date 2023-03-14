@@ -19,7 +19,7 @@ def prompt_evaluate_episode_rtg(
         device,
         target_return,
         reward_mode,
-        prompt,
+        prompt, # a single prompt
         no_r,
         no_rtg,
         no_state_normalize

@@ -52,8 +52,8 @@ num_eval_episodes: 50
 # for both train trajectory and prompt trajectory 
 no_state_normalize: false 
 
-# finetune on given test trajectories
-finetune: false
+# finetune on given test trajectories during evaluation in test environments
+finetune: true
 finetune_steps: 10 # each test environment train for n steps
 finetune_batch_size: 256
 finetune_opt: true  # use finetune optimizer instead of model optimizer
