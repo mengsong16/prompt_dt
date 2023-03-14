@@ -335,44 +335,6 @@ def get_batch(trajectories, info, variant):
 
     return fn
 
-# get a batch of trajectories for test time finetune
-def get_batch_finetune(trajectories, info, variant):
-    num_trajectories, p_sample, sorted_inds = info['num_trajectories'], info['p_sample'], info['sorted_inds']
-    max_ep_len, state_mean, state_std, scale = info['max_ep_len'], info['state_mean'], info['state_std'], info['scale']
-    state_dim, act_dim, device = info['state_dim'], info['act_dim'], info['device']
-    batch_size, K = variant['batch_size'], variant['traj_prompt']['prompt_length'] # use the same amount of data for funetuning
-
-    def fn(batch_size=batch_size, max_len=K):
-        # sample batch_size trajectories from the trajectory pool with replacement
-        # prefer long trajectory
-        batch_inds = np.random.choice(
-            np.arange(num_trajectories),
-            size=batch_size,
-            replace=True,
-            p=p_sample,  # reweights so we sample according to trajectory length
-        )
-
-        # crop a segement from each trajectory in the batch
-        s, a, r, d, rtg, timesteps, mask = [], [], [], [], [], [], []
-        for i in range(batch_size):
-            # current trajectory
-            traj = trajectories[int(sorted_inds[batch_inds[i]])]
-            # si is a random position in the last segment of length max_len in the trajectory
-            si = random.randint(0, traj['rewards'].shape[0] - 1)
-            si = max(0, traj['rewards'].shape[0] - max_len -1) 
-
-            # append the segment
-            append_new_segment(traj, si, max_len, max_ep_len, 
-                       state_dim, act_dim, variant, 
-                       state_mean, state_std, scale,
-                       s, a, r, d, rtg, timesteps, mask)
-            
-        # numpy to torch tensor
-        s, a, r, d, rtg, timesteps, mask = numpy_to_tensor(s, a, r, d, rtg, timesteps, mask, device)
-        
-        return s, a, r, d, rtg, timesteps, mask
-
-    return fn
 
 """ data processing """
 

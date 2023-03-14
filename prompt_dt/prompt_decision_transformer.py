@@ -114,6 +114,7 @@ class PromptDecisionTransformer(nn.Module):
             prompt_returns_embeddings = prompt_returns_embeddings + prompt_time_embeddings
 
             # after reshape: [batch_size, 3*prompt_seq_length, hidden_size]
+            # e.g. train: [720, 15, 128], eval: [32, 15, 128]
             prompt_stacked_inputs = torch.stack(
                 (prompt_returns_embeddings, prompt_state_embeddings, prompt_action_embeddings), dim=1
             ).permute(0, 2, 1, 3).reshape(prompt_states.shape[0], 3 * prompt_seq_length, self.hidden_size)
@@ -123,27 +124,11 @@ class PromptDecisionTransformer(nn.Module):
                 (prompt_attention_mask, prompt_attention_mask, prompt_attention_mask), dim=1
             ).permute(0, 2, 1).reshape(prompt_states.shape[0], 3 * prompt_seq_length)
 
-            
             # concatenate input sequence and prompt sequence
-            # if sample one prompt for all trajectories in the batch (happen when test time finetune)
-            if prompt_stacked_inputs.shape[1] == 3 * seq_length: 
-                prompt_stacked_inputs = prompt_stacked_inputs.reshape(1, -1, self.hidden_size)
-                prompt_stacked_attention_mask = prompt_stacked_attention_mask.reshape(1, -1)
-                stacked_inputs = torch.cat((prompt_stacked_inputs.repeat(batch_size, 1, 1), stacked_inputs), dim=1)
-                stacked_attention_mask = torch.cat((prompt_stacked_attention_mask.repeat(batch_size, 1), stacked_attention_mask), dim=1)
-                # prompt_stacked_inputs: [1, 15, 128]
-                # seq_length: 5
-                #print("here")
-                #exit()
-            # if sample one prompt for each trajectory in the batch (happen when train/evaluation)
-            else: 
-                stacked_inputs = torch.cat((prompt_stacked_inputs, stacked_inputs), dim=1)
-                stacked_attention_mask = torch.cat((prompt_stacked_attention_mask, stacked_attention_mask), dim=1)
-                # prompt_stacked_inputs: train [720, 15, 128] / eval [32, 15, 128]
-                # seq_length: 20
-                #print(prompt_stacked_inputs.shape)
-                #print(seq_length)
-                #exit()
+            # assume sample one prompt for each trajectory in the batch (happen for both train and evaluation)
+            stacked_inputs = torch.cat((prompt_stacked_inputs, stacked_inputs), dim=1)
+            stacked_attention_mask = torch.cat((prompt_stacked_attention_mask, stacked_attention_mask), dim=1)
+            
         # we feed in the input embeddings (not word indices as in NLP) to the model
         transformer_outputs = self.transformer(
             inputs_embeds=stacked_inputs,

@@ -15,7 +15,7 @@ import datetime
 from prompt_dt.prompt_decision_transformer import PromptDecisionTransformer
 from prompt_dt.prompt_seq_trainer import PromptSequenceTrainer
 from prompt_dt.prompt_utils import get_env_list
-from prompt_dt.prompt_utils import get_prompt_batch, get_prompt, get_batch, get_batch_finetune
+from prompt_dt.prompt_utils import get_prompt_batch, get_prompt, get_batch
 from prompt_dt.prompt_utils import get_total_data_mean_std, load_data_prompt, process_info
 from prompt_dt.prompt_utils import eval_episodes, load_train_test_env_name_list, get_total_num_trajectory
 from prompt_dt.utils.path import *
@@ -183,18 +183,15 @@ def experiment_mix_env(variant, mode):
                 config=variant
             )
 
-        # construct model post fix
-        model_post_fix = '_TRAIN_'+variant['train_prompt_mode']+'_TEST_'+variant['test_prompt_mode']
+        # construct model pre fix
         if variant['no_prompt']:
-            model_post_fix += '_NO_PROMPT'
-        if variant['finetune']:
-            model_post_fix += '_FINETUNE'
-        if variant['no_r']:
-            model_post_fix += '_NO_R'
+            model_pre_fix = 'no_prompt'
+        else:
+            model_pre_fix = variant['prompt_method']
         
         print("======> Start training ...")
         for iter in range(variant['max_iters']):
-            # each iteration pick an training environment in turn
+            # each iteration picks a training environment in turn
             env_id = iter % num_train_env
             env_name = train_env_name_list[env_id]
 
@@ -208,23 +205,13 @@ def experiment_mix_env(variant, mode):
 
             # evaluate in test environments
             if iter % variant['test_eval_interval'] == 0:
-                if not variant['finetune']:
-                    test_eval_logs = trainer.eval_iteration_multienv(
-                        get_prompt, test_prompt_trajectories_list,
-                        eval_episodes, test_env_name_list, test_info, variant, 
-                        test_env_list, iter_num=iter + 1, 
-                        print_logs=True, no_prompt=variant['no_prompt'], group='test')
-                    outputs.update(test_eval_logs)
-                else:
-                    test_eval_logs = trainer.finetune_eval_iteration_multienv(
-                        get_prompt, get_batch_finetune, 
-                        test_prompt_trajectories_list, test_trajectories_list,
-                        eval_episodes, test_env_name_list, test_info, 
-                        variant, test_env_list, iter_num=iter + 1, 
-                        print_logs=True, no_prompt=variant['no_prompt'], 
-                        group='finetune-test', finetune_opt=variant['finetune_opt'])
-                    outputs.update(test_eval_logs)
-            
+                test_eval_logs = trainer.eval_iteration_multienv(
+                    get_prompt, test_prompt_trajectories_list,
+                    eval_episodes, test_env_name_list, test_info, variant, 
+                    test_env_list, iter_num=iter + 1, 
+                    print_logs=True, no_prompt=variant['no_prompt'], group='test')
+                outputs.update(test_eval_logs)
+                
             # evaluate in train environments
             if iter % variant['train_eval_interval'] == 0:
                 train_eval_logs = trainer.eval_iteration_multienv(
@@ -237,8 +224,7 @@ def experiment_mix_env(variant, mode):
             # save model
             if iter % variant['save_interval'] == 0:
                 trainer.save_model(
-                    env_name=env_name, 
-                    postfix=model_post_fix+'_iter-'+str(iter), # iteration index starts from 0
+                    model_name=model_pre_fix+'_iter-'+str(iter), # iteration index starts from 0
                     folder=checkpoint_path)
 
             outputs.update({"global_step": iter}) # set global step as iteration
@@ -248,8 +234,7 @@ def experiment_mix_env(variant, mode):
                 wandb.log(outputs)
         
         # save model after the last iteration
-        trainer.save_model(env_name=env_name,  
-                           postfix=model_post_fix+'_iter_'+str(iter), # iteration index starts from 0 
+        trainer.save_model(model_name=model_pre_fix+'_iter_'+str(iter), # iteration index starts from 0 
                            folder=checkpoint_path)
     else:
         ####

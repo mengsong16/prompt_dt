@@ -6,7 +6,7 @@ algorithm_name: 'prompt-dt'
 
 # dataset
 train_dataset_mode: 'expert'
-test_dataset_mode: 'expert'
+test_dataset_mode: 'expert'  # useful for test time finetune only
 train_prompt_mode: 'expert'
 test_prompt_mode: 'expert'
 reward_mode: 'normal' # ['normal', 'delayed']
@@ -51,13 +51,6 @@ num_eval_episodes: 50
 # for both train and evaluation
 # for both train trajectory and prompt trajectory 
 no_state_normalize: false 
-
-# finetune on given test trajectories during evaluation in test environments
-finetune: true
-finetune_steps: 10 # each test environment train for n steps
-finetune_batch_size: 256
-finetune_opt: true  # use finetune optimizer instead of model optimizer
-finetune_lr: 1.0e-4
 
 # evaluation
 load_path: "" # where to load the model
