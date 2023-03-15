@@ -175,8 +175,9 @@ def get_prompt(prompt_trajectories, info, variant):
 # get a batch of trajectories and trajectory prompts
 # Note that for each environment, collect a batch of regular trajectories 
 # and a batch of trajectory prompts with batch size per_env_batch_size
+# therefore, total batch size = n_train_env * per_env_batch_size
 def get_prompt_batch(trajectories_list, prompt_trajectories_list, info, variant, train_env_name_list):
-    per_env_batch_size = variant['batch_size']
+    per_env_batch_size = variant['per_env_batch_size']
 
     # Note that batch_size=per_env_batch_size
     def fn(batch_size=per_env_batch_size):
@@ -220,11 +221,12 @@ def get_prompt_batch(trajectories_list, prompt_trajectories_list, info, variant,
             timesteps_list.append(timesteps)
             mask_list.append(mask)
 
-        # from numpy to tensor
+        # from list to tensor
         p_s, p_a, p_r, p_d = torch.cat(p_s_list, dim=0), torch.cat(p_a_list, dim=0), torch.cat(p_r_list, dim=0), torch.cat(p_d_list, dim=0)
         p_rtg, p_timesteps, p_mask = torch.cat(p_rtg_list, dim=0), torch.cat(p_timesteps_list, dim=0), torch.cat(p_mask_list, dim=0)
         s, a, r, d = torch.cat(s_list, dim=0), torch.cat(a_list, dim=0), torch.cat(r_list, dim=0), torch.cat(d_list, dim=0)
         rtg, timesteps, mask = torch.cat(rtg_list, dim=0), torch.cat(timesteps_list, dim=0), torch.cat(mask_list, dim=0)
+        
         prompt = p_s, p_a, p_r, p_d, p_rtg, p_timesteps, p_mask
         batch = s, a, r, d, rtg, timesteps, mask
 
@@ -301,11 +303,12 @@ def append_new_segment(traj, si, max_len, max_ep_len,
     mask.append(np.concatenate([np.zeros((1, max_len - tlen)), np.ones((1, tlen))], axis=1))
 
 # get a batch of regular trajectories
+# total batch size = per_env_batch_size 
 def get_batch(trajectories, info, variant):
     num_trajectories, p_sample, sorted_inds = info['num_trajectories'], info['p_sample'], info['sorted_inds']
     max_ep_len, state_mean, state_std, scale = info['max_ep_len'], info['state_mean'], info['state_std'], info['scale']
     state_dim, act_dim, device = info['state_dim'], info['act_dim'], info['device']
-    batch_size, K = variant['batch_size'], variant['K']
+    batch_size, K = variant['per_env_batch_size'], variant['K']
 
     def fn(batch_size=batch_size, max_len=K):
         # randomly sample batch_size trajectories from the top trajectory pool with replacement

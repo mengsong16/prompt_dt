@@ -114,7 +114,7 @@ class PromptDecisionTransformer(nn.Module):
             prompt_returns_embeddings = prompt_returns_embeddings + prompt_time_embeddings
 
             # after reshape: [batch_size, 3*prompt_seq_length, hidden_size]
-            # e.g. train: [720, 15, 128], eval: [32, 15, 128]
+            # e.g. train: [720=45*16, 15, 128]
             prompt_stacked_inputs = torch.stack(
                 (prompt_returns_embeddings, prompt_state_embeddings, prompt_action_embeddings), dim=1
             ).permute(0, 2, 1, 3).reshape(prompt_states.shape[0], 3 * prompt_seq_length, self.hidden_size)

@@ -35,7 +35,7 @@ traj_prompt:
   stochastic_prompt: true 
 
 # training
-batch_size: 16 #64 # number of trajectory segments per batch
+per_env_batch_size: 16 # number of trajectory segments per batch in each training environment
 learning_rate: 1.0e-4
 weight_decay: 1.0e-4
 warmup_steps: 10000  # 10000 * number of environments
@@ -47,6 +47,7 @@ train_eval_interval: 500
 test_eval_interval: 500 #100
 save_interval: 500
 # for both train and evaluation
+# eval n episodes for each environment
 num_eval_episodes: 20 #50
 # normalize state or not
 # for both train and evaluation
