@@ -109,7 +109,7 @@ def get_total_num_trajectory(trajectory_num):
     
     return total_num
 
-""" prompts """
+""" trajectory prompts """
 # reshape prompt to a new batch_size
 # [old_batch_size, segment_length, state_dim] --> [new_batch_size, -1, state_dim]
 # -1: old_batch_size * segment_length / new_batch_size
@@ -229,7 +229,6 @@ def get_prompt_batch(trajectories_list, prompt_trajectories_list, info, variant,
     return fn
 
 """ batches """
-
 def numpy_to_tensor(s, a, r, d, rtg, timesteps, mask, device):
     s = torch.from_numpy(np.concatenate(s, axis=0)).to(dtype=torch.float32, device=device)
     a = torch.from_numpy(np.concatenate(a, axis=0)).to(dtype=torch.float32, device=device)
@@ -458,39 +457,5 @@ def discount_cumsum(x, gamma):
         discount_cumsum[t] = x[t] + gamma * discount_cumsum[t + 1]
     return discount_cumsum
 
-""" evaluation """
 
-def eval_episodes(target_rew, info, variant, env, env_name):
-    max_ep_len, state_mean, state_std, scale = info['max_ep_len'], info['state_mean'], info['state_std'], info['scale']
-    state_dim, act_dim, device = info['state_dim'], info['act_dim'], info['device']
-    num_eval_episodes = variant['num_eval_episodes']
-    reward_mode = variant.get('reward_mode', 'normal')
-
-    def fn(model, prompt=None):
-        returns = []
-        for _ in range(num_eval_episodes):
-            with torch.no_grad():
-                ret, infos = prompt_evaluate_episode_rtg(
-                    env,
-                    state_dim,
-                    act_dim,
-                    model,
-                    max_ep_len=max_ep_len,
-                    scale=scale,
-                    target_return=target_rew / scale,
-                    reward_mode=reward_mode,
-                    state_mean=state_mean,
-                    state_std=state_std,
-                    device=device,
-                    prompt=prompt,
-                    no_r=variant['no_r'],
-                    no_rtg=variant['no_rtg'],
-                    no_state_normalize=variant['no_state_normalize']                
-                    )
-            returns.append(ret)
-        return {
-            f'{env_name}_target_{target_rew}_return_mean': np.mean(returns),
-            f'{env_name}_target_{target_rew}_return_std': np.std(returns),
-            }
-    return fn
 

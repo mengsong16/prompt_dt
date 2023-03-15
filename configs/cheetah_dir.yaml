@@ -25,7 +25,7 @@ no_r: false # deduct reward from rtg or not
 no_rtg: false # input includes rtg or not
 
 # prompt
-no_prompt: false
+no_prompt: true #false
 prompt_method: "traj_prompt" #["traj_prompt", "goal_prompt"]
 traj_prompt:
   prompt_episode:  1
@@ -53,7 +53,8 @@ num_eval_episodes: 50
 no_state_normalize: false 
 
 # evaluation
-load_path: "" # where to load the model
+load_path: "cheetah_dir-2-env-expert-s1-20230314-212110" # where to load the model
+checkpoint_name: "traj_prompt_iter-0"
 
 # seed
 seed: 1

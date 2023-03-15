@@ -17,9 +17,10 @@ from prompt_dt.prompt_seq_trainer import PromptSequenceTrainer
 from prompt_dt.prompt_utils import get_env_list
 from prompt_dt.prompt_utils import get_prompt_batch, get_prompt, get_batch
 from prompt_dt.prompt_utils import get_total_data_mean_std, load_data_prompt, process_info
-from prompt_dt.prompt_utils import eval_episodes, load_train_test_env_name_list, get_total_num_trajectory
+from prompt_dt.prompt_utils import load_train_test_env_name_list, get_total_num_trajectory
 from prompt_dt.utils.path import *
 from prompt_dt.utils.other import parse_config, seed_other
+from prompt_dt.prompt_evaluate_episodes import eval_episodes, save_eval_results
 
 from collections import namedtuple
 import json, pickle, os
@@ -168,8 +169,12 @@ def experiment_mix_env(variant, mode):
         now = datetime.datetime.now()
         experiment_name = "s%d-"%(seed) + now.strftime("%Y%m%d-%H%M%S").lower() 
 
-        # get checkpoint folder path
+        # set checkpoint folder path
         checkpoint_path = os.path.join(runs_path, group_name + "-" + experiment_name)
+
+        # set evaluation results folder path
+        eval_results_path = os.path.join(evaluation_path, group_name + "-" + experiment_name)
+        
         
         # wandb initialize
         if log_to_wandb:
@@ -202,21 +207,31 @@ def experiment_mix_env(variant, mode):
 
             # evaluate in test environments
             if iter % variant['test_eval_interval'] == 0:
-                test_eval_logs = trainer.eval_iteration_multienv(
+                test_eval_logs, test_eval_results = trainer.eval_iteration_multienv(
                     get_prompt, test_prompt_trajectories_list,
                     eval_episodes, test_env_name_list, test_info, variant, 
                     test_env_list, iter_num=iter + 1, 
                     print_logs=True, no_prompt=variant['no_prompt'], group='test')
+                # update logs
                 outputs.update(test_eval_logs)
+                # save evaluation results
+                save_eval_results(eval_results=test_eval_results, 
+                                file_name=model_pre_fix+'_iter-'+str(iter)+'.pkl', # iteration index starts from 0
+                                folder=os.path.join(eval_results_path, "test"))
                 
             # evaluate in train environments
             if iter % variant['train_eval_interval'] == 0:
-                train_eval_logs = trainer.eval_iteration_multienv(
+                train_eval_logs, train_eval_results = trainer.eval_iteration_multienv(
                     get_prompt, train_prompt_trajectories_list,
                     eval_episodes, train_env_name_list, train_info, variant, 
                     train_env_list, iter_num=iter + 1, 
                     print_logs=True, no_prompt=variant['no_prompt'], group='train')
+                # update logs
                 outputs.update(train_eval_logs)
+                # save evaluation results
+                save_eval_results(eval_results=train_eval_results, 
+                                file_name=model_pre_fix+'_iter-'+str(iter)+'.pkl', # iteration index starts from 0
+                                folder=os.path.join(eval_results_path, "train"))
 
             # save model
             if iter % variant['save_interval'] == 0:
@@ -239,19 +254,42 @@ def experiment_mix_env(variant, mode):
         ####
 
         # load model
-        saved_model_path = os.path.join(runs_path, variant['load_path'])
+        load_path = variant['load_path']
+        checkpoint_name = variant['checkpoint_name']
+        saved_model_path = os.path.join(runs_path, load_path, checkpoint_name)
         model.load_state_dict(torch.load(saved_model_path))
         print('======> Model loaded from: ', saved_model_path)
 
-        eval_iter_num = int(saved_model_path.split('_')[-1])
+        eval_iter_num = int(checkpoint_name.split('-')[-1])
 
-        eval_logs = trainer.eval_iteration_multienv(
+        eval_results_path = os.path.join(evaluation_path, load_path)
+
+        # evaluate in test environments
+        test_eval_logs, test_eval_results = trainer.eval_iteration_multienv(
                     get_prompt, test_prompt_trajectories_list,
                     eval_episodes, test_env_name_list, test_info, variant, 
                     test_env_list, iter_num=eval_iter_num, 
-                    print_logs=True, no_prompt=variant['no_prompt'], group='eval')
+                    print_logs=True, no_prompt=variant['no_prompt'], group='test')
+        # save evaluation results
+        save_eval_results(eval_results=test_eval_results, 
+                        file_name=checkpoint_name+'.pkl', # iteration index starts from 0
+                        folder=os.path.join(eval_results_path, "test"))
+        
+    
+        # evaluate in train environments
+        train_eval_logs, train_eval_results = trainer.eval_iteration_multienv(
+                    get_prompt, train_prompt_trajectories_list,
+                    eval_episodes, train_env_name_list, train_info, variant, 
+                    train_env_list, iter_num=eval_iter_num, 
+                    print_logs=True, no_prompt=variant['no_prompt'], group='train')
+    
+        # save evaluation results
+        save_eval_results(eval_results=train_eval_results, 
+                        file_name=checkpoint_name+'.pkl', # iteration index starts from 0
+                        folder=os.path.join(eval_results_path, "train"))
+
 
         
 if __name__ == '__main__':
-    config = parse_config(os.path.join(config_path, "ant_dir.yaml"))
+    config = parse_config(os.path.join(config_path, "cheetah_dir.yaml"))
     experiment_mix_env(variant=config, mode="train") # mode: ['train', 'eval']

@@ -6,6 +6,7 @@ import torch
 import time
 from wandb import env
 from prompt_dt.prompt_utils import flatten_prompt
+from prompt_dt.prompt_evaluate_episodes import pack_eval_results_one_env_target, compute_mean_std_one_base_env_multi_targets
 import copy
 import os
 
@@ -94,9 +95,12 @@ class PromptSequenceTrainer:
         logs = dict()
         self.model.eval()
 
+        eval_results = []
+
         eval_start = time.time()
         for env_id, env_name in enumerate(env_name_list):
-            # set up eval_fns and their parameters
+            
+            # set up an eval_fn and its parameters for each target return
             self.eval_fns = [eval_episodes(tar, info[env_name], variant, env_list[env_id], env_name) for tar in info[env_name]['env_targets']]
             
             if not no_prompt:
@@ -110,21 +114,32 @@ class PromptSequenceTrainer:
             
             # evaluate in current environment for num_eval_episodes
             for eval_fn in self.eval_fns:
-                # get return mean and std
-                outputs = eval_fn(self.model, prompt=current_prompt)
-                for k, v in outputs.items():
-                    logs[f'{group}-evaluation/{k}'] = v
+                # output_logs: return mean and std
+                output_logs, returns, episode_lengths, target_return = eval_fn(self.model, prompt=current_prompt)
+                
+                current_eval_results = pack_eval_results_one_env_target(env_id, env_name,
+                                    returns, episode_lengths,
+                                    target_return)
+                eval_results.append(current_eval_results)
 
+                # for k, v in output_logs.items():
+                #     logs[f'{group}-evaluation/{k}'] = v
+
+        eval_stats = compute_mean_std_one_base_env_multi_targets(eval_results)
+        
+        for k, v in eval_stats.items():
+            logs[f'{group}-evaluation/{k}'] = v
+        
         logs['time/evaluation'] = time.time() - eval_start
-
+        
         if print_logs:
             print('=' * 80)
             print(f'Iteration {iter_num}')
             for k, v in logs.items():
                 print(f'{k}: {v}')
             print('=' * 80)
-
-        return logs
+        
+        return logs, eval_results
 
  
     def save_model(self, model_name, folder):

@@ -4,8 +4,51 @@
 import numpy as np
 import torch
 import time
+import os
+import pickle 
 
-# evaluate policy in a test environment
+""" evaluation """
+
+def eval_episodes(target_rew, info, variant, env, env_name):
+    max_ep_len, state_mean, state_std, scale = info['max_ep_len'], info['state_mean'], info['state_std'], info['scale']
+    state_dim, act_dim, device = info['state_dim'], info['act_dim'], info['device']
+    num_eval_episodes = variant['num_eval_episodes']
+    reward_mode = variant.get('reward_mode', 'normal')
+
+    def fn(model, prompt=None):
+        returns = []
+        episode_lengths = []
+        for _ in range(num_eval_episodes):
+            with torch.no_grad():
+                # evaluate for one episode
+                # return episode_return and infos['episode_length']
+                ret, infos = prompt_evaluate_episode_rtg(
+                    env,
+                    state_dim,
+                    act_dim,
+                    model,
+                    max_ep_len=max_ep_len,
+                    scale=scale,
+                    target_return=target_rew / scale,
+                    reward_mode=reward_mode,
+                    state_mean=state_mean,
+                    state_std=state_std,
+                    device=device,
+                    prompt=prompt,
+                    no_r=variant['no_r'],
+                    no_rtg=variant['no_rtg'],
+                    no_state_normalize=variant['no_state_normalize']                
+                    )
+            returns.append(ret)
+            episode_lengths.append(infos['episode_length'])
+        
+        return {
+            f'{env_name}_target_{target_rew}_return_mean': np.mean(returns),
+            f'{env_name}_target_{target_rew}_return_std': np.std(returns),
+            }, returns, episode_lengths, target_rew
+    return fn
+
+# evaluate policy for one episode in a test environment
 # w or w/o prompt
 def prompt_evaluate_episode_rtg(
         env,
@@ -113,3 +156,61 @@ def prompt_evaluate_episode_rtg(
         infos['episode_length'] = episode_length
 
     return episode_return, infos
+
+# pack the evaluation results for a given (environment, return_target) pair
+# target_return is unscaled
+def pack_eval_results_one_env_target(env_id, env_name,
+                                    returns, episode_lengths,
+                                    target_return):
+    eval_results = {}
+    eval_results["env_id"] = env_id
+    eval_results["env_name"] = env_name
+    eval_results["returns"] = returns
+    eval_results["episode_lengths"] = episode_lengths
+    eval_results["target_return"] = target_return
+
+    return eval_results
+
+# eval_results is a list of results for each (environment, return_target) pair
+def compute_mean_std_one_base_env_multi_targets(eval_results):
+    returns = {}
+    episode_lengths = {}
+    base_env_name = eval_results[0]["env_name"].split('-')[0]
+
+    for cur_env_target_results in eval_results:
+        cur_target_return = cur_env_target_results["target_return"]
+        # returns
+        if cur_target_return not in returns:
+            returns[cur_target_return] = []
+        else:
+            returns[cur_target_return].extend(cur_env_target_results["returns"])
+        
+        # episode_lengths
+        if cur_target_return not in episode_lengths:
+            episode_lengths[cur_target_return] = []
+        else:
+            episode_lengths[cur_target_return].extend(cur_env_target_results["episode_lengths"])
+
+    eval_stats = {}
+    for target_return, rts in returns.items():
+        rts = np.array(rts)
+        eval_stats[f'{base_env_name}_target_{target_return}_return_mean'] = np.mean(rts)
+        eval_stats[f'{base_env_name}_target_{target_return}_return_std'] = np.std(rts)
+    
+    for target_return, epi_lens in episode_lengths.items():
+        epi_lens = np.array(epi_lens)
+        eval_stats[f'{base_env_name}_target_{target_return}_episode_length_mean'] = np.mean(epi_lens)
+        eval_stats[f'{base_env_name}_target_{target_return}_episode_length_std'] = np.std(epi_lens)
+
+    return eval_stats
+
+def save_eval_results(eval_results, file_name, folder):
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+
+    save_path = os.path.join(folder, file_name)
+    
+    with open(save_path, 'wb') as f:
+        pickle.dump(eval_results, f)
+
+    print('======> Save evaluation results to ', save_path)
