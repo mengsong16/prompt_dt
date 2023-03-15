@@ -25,7 +25,7 @@ no_r: false # deduct reward from rtg or not
 no_rtg: false # input includes rtg or not
 
 # prompt
-no_prompt: false
+no_prompt: true
 prompt_method: "traj_prompt" #["traj_prompt", "goal_prompt"]
 traj_prompt:
   prompt_episode: 1
@@ -61,7 +61,7 @@ checkpoint_name: "iter-0.pth"
 seed: 1
 
 # device
-device: 'cuda:0'
+device: 'cuda:1'
 
 # log
 log_to_wandb: true

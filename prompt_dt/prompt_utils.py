@@ -110,7 +110,7 @@ def get_total_num_trajectory(trajectory_num):
     return total_num
 
 """ trajectory prompts """
-# reshape prompt to a new batch_size
+# reshape trajectory prompts to a new batch_size
 # [old_batch_size, segment_length, state_dim] --> [new_batch_size, -1, state_dim]
 # -1: old_batch_size * segment_length / new_batch_size
 def flatten_prompt(prompt, batch_size):
@@ -173,9 +173,12 @@ def get_prompt(prompt_trajectories, info, variant):
     return fn
 
 # get a batch of trajectories and trajectory prompts
+# Note that for each environment, collect a batch of regular trajectories 
+# and a batch of trajectory prompts with batch size per_env_batch_size
 def get_prompt_batch(trajectories_list, prompt_trajectories_list, info, variant, train_env_name_list):
     per_env_batch_size = variant['batch_size']
 
+    # Note that batch_size=per_env_batch_size
     def fn(batch_size=per_env_batch_size):
         p_s_list, p_a_list, p_r_list, p_d_list, p_rtg_list, p_timesteps_list, p_mask_list = [], [], [], [], [], [], []
         s_list, a_list, r_list, d_list, rtg_list, timesteps_list, mask_list = [], [], [], [], [], [], []
@@ -294,7 +297,7 @@ def append_new_segment(traj, si, max_len, max_ep_len,
     rtg[-1] = np.concatenate([np.zeros((1, max_len - tlen, 1)), rtg[-1]], axis=1) / scale
     # left pad timestep with 0 if shorter than max_len
     timesteps[-1] = np.concatenate([np.zeros((1, max_len - tlen)), timesteps[-1]], axis=1)
-    # mask = 1 (not done) until tlen, after that = 0 (done)
+    # mask = 1 (attend) until tlen, after that = 0 (not attend)
     mask.append(np.concatenate([np.zeros((1, max_len - tlen)), np.ones((1, tlen))], axis=1))
 
 # get a batch of regular trajectories
