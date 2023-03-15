@@ -1,5 +1,5 @@
 # environment
-base_env: 'cheetah_dir' # ['cheetah_dir', 'cheetah_vel', 'ant_dir', 'ML1-pick-place-v2']
+base_env: 'ML1-pick-place-v2' # ['cheetah_dir', 'cheetah_vel', 'ant_dir', 'ML1-pick-place-v2']
 
 # project name
 project_name: 'prompt-dt'

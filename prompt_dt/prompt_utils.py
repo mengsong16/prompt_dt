@@ -41,7 +41,7 @@ def gen_env(env_name, config_save_path, seed):
         elif '1' in env_name: # direction -1
             env = HalfCheetahDirEnv([{'direction': -1}], include_goal = False)
         max_ep_len = 200
-        env_targets = [1500]
+        env_targets = [1000] #[1500]
         scale = 1000.
     elif 'cheetah_vel' in env_name:
         task_idx = int(env_name.split('-')[-1])
@@ -77,7 +77,7 @@ def gen_env(env_name, config_save_path, seed):
         task = ml1.train_tasks[task_idx]
         env.set_task(task)  # set task
         max_ep_len = 500 
-        env_targets= [int(650)]
+        env_targets= [650]
         scale = 650.
     else:
         raise NotImplementedError

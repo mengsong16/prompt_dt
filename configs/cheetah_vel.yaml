@@ -1,5 +1,5 @@
 # environment
-base_env: 'cheetah_dir' # ['cheetah_dir', 'cheetah_vel', 'ant_dir', 'ML1-pick-place-v2']
+base_env: 'cheetah_vel' # ['cheetah_dir', 'cheetah_vel', 'ant_dir', 'ML1-pick-place-v2']
 
 # project name
 project_name: 'prompt-dt'
@@ -25,7 +25,7 @@ no_r: false # deduct reward from rtg or not
 no_rtg: false # input includes rtg or not
 
 # prompt
-no_prompt: true #false
+no_prompt: false
 prompt_method: "traj_prompt" #["traj_prompt", "goal_prompt"]
 traj_prompt:
   prompt_episode: 1
@@ -64,4 +64,4 @@ seed: 1
 device: 'cuda:0'
 
 # log
-log_to_wandb: false
+log_to_wandb: true

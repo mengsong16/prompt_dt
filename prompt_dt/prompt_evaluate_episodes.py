@@ -150,10 +150,11 @@ def prompt_evaluate_episode_rtg(
         episode_return += reward
         episode_length += 1
 
+        infos['episode_length'] = episode_length
+
         if done:
             break
 
-        infos['episode_length'] = episode_length
 
     return episode_return, infos
 
@@ -213,4 +214,4 @@ def save_eval_results(eval_results, file_name, folder):
     with open(save_path, 'wb') as f:
         pickle.dump(eval_results, f)
 
-    print('======> Save evaluation results to ', save_path)
+    print('======> Evaluation results saved to ', save_path)
