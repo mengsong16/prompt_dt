@@ -91,6 +91,7 @@ def get_env_list(env_name_list, config_save_path, device, seed):
     
     for env_name in env_name_list:
         info[env_name] = {}
+        # create env
         env, max_ep_len, env_targets, scale = gen_env(env_name=env_name, config_save_path=config_save_path, seed=seed)
         info[env_name]['max_ep_len'] = max_ep_len
         info[env_name]['env_targets'] = env_targets
@@ -101,6 +102,21 @@ def get_env_list(env_name_list, config_save_path, device, seed):
         env_list.append(env)
     return info, env_list
 
+# return environment goal as a numpy array
+def get_env_goal(env_name, env):
+    if "ML1" in env_name:
+        env_goal = env.goal
+    else:
+        env_goal = env._goal
+    
+    env_goal_array = np.array(env_goal)
+    # env_goal is a single number
+    if not env_goal_array.shape:
+        env_goal_array = np.array([env_goal])
+    
+    return env_goal_array
+
+    
 # count total number of trajectories in a dictionary
 def get_total_num_trajectory(trajectory_num):
     total_num = 0
@@ -173,7 +189,7 @@ def get_prompt(prompt_trajectories, info, variant):
     return fn
 
 # get a batch of trajectories and trajectory prompts
-# Note that for each environment, collect a batch of regular trajectories 
+# Note that for each environment, collect a batch of input trajectories 
 # and a batch of trajectory prompts with batch size per_env_batch_size
 # therefore, total batch size = n_train_env * per_env_batch_size
 def get_prompt_batch(trajectories_list, prompt_trajectories_list, info, variant, train_env_name_list):
@@ -206,13 +222,16 @@ def get_prompt_batch(trajectories_list, prompt_trajectories_list, info, variant,
             p_timesteps_list.append(p_timesteps)
             p_mask_list.append(p_mask)
 
-            # get a batch of regular trajectories
+            # get a batch of input trajectories
             batch = get_batch_fn(batch_size=batch_size)
             s, a, r, d, rtg, timesteps, mask = batch
+            
+            # rewrite reward and return-to-go in input trajectories if necessary
             if variant['no_r']:
                 r = torch.zeros_like(r)
             if variant['no_rtg']:
                 rtg = torch.zeros_like(rtg)
+
             s_list.append(s)
             a_list.append(a)
             r_list.append(r)
@@ -302,7 +321,7 @@ def append_new_segment(traj, si, max_len, max_ep_len,
     # mask = 1 (attend) until tlen, after that = 0 (not attend)
     mask.append(np.concatenate([np.zeros((1, max_len - tlen)), np.ones((1, tlen))], axis=1))
 
-# get a batch of regular trajectories
+# get a batch of input trajectories
 # total batch size = per_env_batch_size 
 def get_batch(trajectories, info, variant):
     num_trajectories, p_sample, sorted_inds = info['num_trajectories'], info['p_sample'], info['sorted_inds']

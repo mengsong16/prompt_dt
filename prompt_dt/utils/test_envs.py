@@ -4,6 +4,7 @@ import json, pickle, random, os, torch
 from collections import namedtuple
 from prompt_dt.prompt_utils import load_train_test_env_name_list
 from prompt_dt.utils.path import *
+from prompt_dt.prompt_utils import get_env_goal
 
 # for mujoco tasks
 from mujoco_control_envs.mujoco_control_envs import HalfCheetahDirEnv, HalfCheetahVelEnv, AntDirEnv
@@ -33,7 +34,7 @@ def create_env(env_name, config_save_path, seed=1):
             task_info = pickle.load(f)
             assert len(task_info) == 1, f'Unexpected task info: {task_info}'
             tasks.append(task_info[0])
-        # print(tasks[0])  # 0.075 = env._goal
+        # print(tasks[0])  # env._goal = 0.075
         # include_goal = False: do not include goal in observations
         env = HalfCheetahVelEnv(tasks, include_goal = False)
         
@@ -77,7 +78,7 @@ def test_envs():
     #train_env_name_list, test_env_name_list = load_train_test_env_name_list(base_env)
 
     # 'ant_dir-0', 'cheetah_vel-0', 'cheetah_dir-0', 'ML1-pick-place-v2-0'
-    env_name = 'ML1-pick-place-v2-0'
+    env_name = 'cheetah_vel-0'
     env = create_env(env_name=env_name, config_save_path=task_config_path)
     if "ML1" in env_name:
         max_ep_len = 500
@@ -105,18 +106,10 @@ def test_envs():
         print('Episode {} finished after {} timesteps.'.format(episode,i+1))
     
     print('-----------------------------')
-    print(env.observation_space)
-    print(env.action_space)
-    if "ML1" in env_name:
-        print(env.goal)
-    else:
-        print(env._goal)
+    print("Observation space: ", env.observation_space)
+    print("Action space: ", env.action_space)
+    print("Goal: ", get_env_goal(env_name, env))
     print('-----------------------------')
-
-    
-
-
-    
 
 if __name__ == '__main__':
     test_envs()

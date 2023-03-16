@@ -126,6 +126,7 @@ def prompt_evaluate_episode_rtg(
         states = torch.cat([states, cur_state], dim=0)
         # append new reward to the rightmost location of the reward history
         rewards[-1] = reward
+        # if no reward in input trajectories, use 0 as reward
         if no_r:
             rewards[-1] = 0.0
 
@@ -139,7 +140,7 @@ def prompt_evaluate_episode_rtg(
 
         target_return = torch.cat(
             [target_return, pred_return.reshape(1, 1)], dim=1)
-        # if no return-to-go, use a constant target return
+        # if no return-to-go in input trajectories, use a constant target return
         if no_rtg:
             target_return = torch.ones_like(target_return)*ep_return
         # append new timestep to the rightmost location of the timestep history

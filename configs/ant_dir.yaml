@@ -20,7 +20,7 @@ n_head: 1
 activation_function: 'relu'
 dropout: 0.1
 K: 20  # input segment length
-# the following are for both train trajectory and prompt trajectory
+# the following options are only for input trajectories, not for trajectory prompts
 no_r: false # deduct reward from rtg or not
 no_rtg: false # input includes rtg or not
 
