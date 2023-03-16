@@ -93,13 +93,17 @@ def get_env_list(env_name_list, config_save_path, device, seed):
         info[env_name] = {}
         # create env
         env, max_ep_len, env_targets, scale = gen_env(env_name=env_name, config_save_path=config_save_path, seed=seed)
+        # get environment information
         info[env_name]['max_ep_len'] = max_ep_len
         info[env_name]['env_targets'] = env_targets
         info[env_name]['scale'] = scale
         info[env_name]['state_dim'] = env.observation_space.shape[0]
         info[env_name]['act_dim'] = env.action_space.shape[0] 
         info[env_name]['device'] = device
+        info[env_name]['goal'] = get_env_goal(env_name, env)
+
         env_list.append(env)
+    
     return info, env_list
 
 # return environment goal as a numpy array
@@ -318,10 +322,10 @@ def append_new_segment(traj, si, max_len, max_ep_len,
     rtg[-1] = np.concatenate([np.zeros((1, max_len - tlen, 1)), rtg[-1]], axis=1) / scale
     # left pad timestep with 0 if shorter than max_len
     timesteps[-1] = np.concatenate([np.zeros((1, max_len - tlen)), timesteps[-1]], axis=1)
-    # mask = 1 (attend) until tlen, after that = 0 (not attend)
+    # mask = 1 (attend) for the real segment, mask = 0 (not attend) for the left padding
     mask.append(np.concatenate([np.zeros((1, max_len - tlen)), np.ones((1, tlen))], axis=1))
 
-# get a batch of input trajectories
+# get a batch of input trajectory segments
 # total batch size = per_env_batch_size 
 def get_batch(trajectories, info, variant):
     num_trajectories, p_sample, sorted_inds = info['num_trajectories'], info['p_sample'], info['sorted_inds']
@@ -429,7 +433,7 @@ def process_dataset(trajectories, reward_mode, env_name, dataset, pct_traj, verb
     # num_trajectories, sorted_inds, p_sample are for top trajectories
     return trajectories, num_trajectories, sorted_inds, p_sample, state_mean, state_std, reward_info
 
-# load trajectories and prompt trajectories
+# load regular trajectories and prompt trajectories
 def load_data_prompt(env_name_list, data_save_path, dataset, prompt_mode, base_env):
     trajectories_list = [] # a list of trajectory list, each trajectory list comes from a specific environment
     prompt_trajectories_list = [] # a list of trajectory list, each trajectory list comes from a specific environment
@@ -474,7 +478,8 @@ def process_info(env_name_list, trajectories_list, info, reward_mode, dataset, p
     
     return info
 
-# compute discounted return at each step in the sequence x
+# sequence x is a sequence of reward
+# compute discounted return (return-to-go) at each step of the sequence 
 def discount_cumsum(x, gamma):
     discount_cumsum = np.zeros_like(x)
     discount_cumsum[-1] = x[-1]
