@@ -107,11 +107,24 @@ def experiment_mix_env(config_filename, mode):
     reward_mode = variant.get('reward_mode', 'normal')
     pct_traj = float(variant.get('pct_traj', 1.))
     # process train dataset info
-    train_info = process_info(train_env_name_list, train_trajectories_list, train_info, reward_mode, train_dataset_mode, pct_traj, variant)
-    # process test dataset info
-    test_info = process_info(test_env_name_list, test_trajectories_list, test_info, reward_mode, test_dataset_mode, pct_traj, variant)
+    # print("="*80)
+    # print("Train environments info")
+    # print("="*80)
+    train_info = process_info(train_env_name_list, train_trajectories_list, 
+                              train_info, reward_mode, train_dataset_mode, 
+                              pct_traj, variant, verbose=False)
 
-    print("======> Processed train and test trajectories")
+    # process test dataset info
+    # print("="*80)
+    # print("Test environments info")
+    # print("="*80)
+    test_info = process_info(test_env_name_list, test_trajectories_list, 
+                             test_info, reward_mode, test_dataset_mode, 
+                             pct_traj, variant, verbose=False)
+
+    print("======> Train and test trajectories processed ")
+
+    #exit()
 
     ######
     # construct dt model and trainer
@@ -303,7 +316,7 @@ def experiment_mix_env(config_filename, mode):
 
         
 if __name__ == '__main__':
-    #experiment_mix_env(config_filename="cheetah_dir.yaml", mode="train") # mode: ['train', 'eval']
+    experiment_mix_env(config_filename="cheetah_dir.yaml", mode="train") # mode: ['train', 'eval']
     #experiment_mix_env(config_filename="cheetah_vel.yaml", mode="train")
     #experiment_mix_env(config_filename="ant_dir.yaml", mode="train")
-    experiment_mix_env(config_filename="ML1-pick-place-v2.yaml", mode="train")
+    #experiment_mix_env(config_filename="ML1-pick-place-v2.yaml", mode="train")

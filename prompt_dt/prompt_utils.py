@@ -95,7 +95,7 @@ def get_env_list(env_name_list, config_save_path, device, seed):
         env, max_ep_len, env_targets, scale = gen_env(env_name=env_name, config_save_path=config_save_path, seed=seed)
         # get environment information
         info[env_name]['max_ep_len'] = max_ep_len
-        info[env_name]['env_targets'] = env_targets
+        info[env_name]['env_targets'] = env_targets # a list of target rtg in the specific environment used in the evaluation
         info[env_name]['scale'] = scale
         info[env_name]['state_dim'] = env.observation_space.shape[0]
         info[env_name]['act_dim'] = env.action_space.shape[0] 
@@ -294,6 +294,7 @@ def append_new_segment(traj, si, max_len, max_ep_len,
     # r[-1].shape: (1, max_len, 1)
     # new_rtg.shape: (1, max_len+1, 1)
     # the extra step in new_rtg will be discarded when batch is used in training
+    # set gamma=1 is equivalent to using undiscounted return as rtg
     new_rtg = discount_cumsum(traj['rewards'][si:], gamma=1.)[:s[-1].shape[1] + 1].reshape(1, -1, 1)
     rtg.append(new_rtg)
     # append a single 0 to rtg
@@ -391,7 +392,7 @@ def process_dataset(trajectories, reward_mode, env_name, dataset, pct_traj, verb
             path['rewards'][:-1] = 0.
         states.append(path['observations'])
         traj_lens.append(len(path['observations']))
-        returns.append(path['rewards'].sum())
+        returns.append(path['rewards'].sum()) # undiscounted return
     traj_lens, returns = np.array(traj_lens), np.array(returns)
 
     # used for state normalization
@@ -400,6 +401,7 @@ def process_dataset(trajectories, reward_mode, env_name, dataset, pct_traj, verb
 
     num_timesteps = sum(traj_lens)
 
+    # Note that returns are undiscounted
     if verbose:
         print('=' * 50)
         print(f'Processing data from environment: {env_name} {dataset}')
@@ -426,7 +428,7 @@ def process_dataset(trajectories, reward_mode, env_name, dataset, pct_traj, verb
     # used to reweight sampling so we sample trajectory according to its length ratio
     # only consider top trajectories
     p_sample = traj_lens[sorted_inds] / sum(traj_lens[sorted_inds])
-    # mean/std/max/min of returns
+    # mean/std/max/min of undiscounted returns
     reward_info = [np.mean(returns), np.std(returns), np.max(returns), np.min(returns)]
 
     # note that trajectories are still all trajectories (no cut-off), the only difference is the reward mode
@@ -458,9 +460,10 @@ def load_data_prompt(env_name_list, data_save_path, dataset, prompt_mode, base_e
     return trajectories_list, prompt_trajectories_list, trajectory_num, prompt_trajectory_num
 
 # process train/test dataset
-def process_info(env_name_list, trajectories_list, info, reward_mode, dataset, pct_traj, variant, verbose=False):
+def process_info(env_name_list, trajectories_list, info, reward_mode, dataset, pct_traj, variant, verbose):
     for i, env_name in enumerate(env_name_list):
         # process trajectories from currect environment
+        # reward_info include the stats of undiscounted episode returns in current environment
         trajectories, num_trajectories, sorted_inds, p_sample, state_mean, state_std, reward_info = process_dataset(
             trajectories=trajectories_list[i], reward_mode=reward_mode, env_name=env_name_list[i], dataset=dataset, 
             pct_traj=pct_traj, verbose=verbose)
