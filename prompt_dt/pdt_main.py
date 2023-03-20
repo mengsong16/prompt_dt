@@ -17,7 +17,7 @@ import json
 from prompt_dt.prompt_decision_transformer import PromptDecisionTransformer
 from prompt_dt.prompt_seq_trainer import PromptSequenceTrainer
 from prompt_dt.prompt_utils import get_env_list
-from prompt_dt.prompt_utils import get_prompt_batch, get_prompt, get_batch
+from prompt_dt.prompt_utils import get_prompt_batch, get_prompt, get_batch, get_goal_prompt_batch, get_goal_prompt
 from prompt_dt.prompt_utils import get_total_data_mean_std, load_data_prompt, process_info
 from prompt_dt.prompt_utils import load_train_test_env_name_list, get_total_num_trajectory
 from prompt_dt.utils.path import *
@@ -134,10 +134,12 @@ def experiment_mix_env(config_filename, mode):
     # create model
     state_dim = test_env_list[0].observation_space.shape[0]
     act_dim = test_env_list[0].action_space.shape[0]
+    goal_dim = test_info[test_env_name_list[0]]['goal'].shape[0]
 
     model = PromptDecisionTransformer(
         state_dim=state_dim,
         act_dim=act_dim,
+        goal_dim=goal_dim,
         max_length=int(variant['K']),
         max_ep_len=1000,
         hidden_size=variant['embed_dim'],
@@ -148,6 +150,8 @@ def experiment_mix_env(config_filename, mode):
         n_positions=1024,
         resid_pdrop=variant['dropout'],
         attn_pdrop=variant['dropout'],
+        no_prompt=variant['no_prompt'],
+        prompt_method=variant['prompt_method'],
     )
     model = model.to(device=device)
 
@@ -166,13 +170,23 @@ def experiment_mix_env(config_filename, mode):
     )
 
     # create trainer
+    if variant['prompt_method'] == "traj_prompt":
+        get_prompt_batch_fn = get_prompt_batch(train_trajectories_list, train_prompt_trajectories_list, train_info, variant, train_env_name_list)
+        get_prompt_fn = get_prompt
+    elif variant['prompt_method'] == "goal_prompt":
+        get_prompt_batch_fn = get_goal_prompt_batch(train_trajectories_list, train_info, variant, train_env_name_list)
+        get_prompt_fn = get_goal_prompt
+    else:
+        print("Error: undefined prompt method")
+        exit()
+    
     trainer = PromptSequenceTrainer(
         model=model,
         optimizer=optimizer,
         scheduler=scheduler,
         loss_fn=lambda s_hat, a_hat, r_hat, s, a, r: torch.mean((a_hat - a) ** 2),
         eval_fns=None,
-        get_prompt_batch_fn=get_prompt_batch(train_trajectories_list, train_prompt_trajectories_list, train_info, variant, train_env_name_list)
+        get_prompt_batch_fn=get_prompt_batch_fn
     )
 
     print("======> Trainer created")
@@ -187,6 +201,7 @@ def experiment_mix_env(config_filename, mode):
             prompt_method = 'no_prompt'
         else:
             prompt_method = variant['prompt_method']
+        
         group_name = f'{base_env}-{str(num_train_env)}-env-{train_dataset_mode}-{prompt_method}'
         now = datetime.datetime.now()
         experiment_name = "s%d-"%(seed) + now.strftime("%Y%m%d-%H%M%S").lower() 
@@ -233,7 +248,7 @@ def experiment_mix_env(config_filename, mode):
             # evaluate in test environments (including the first and last iteration)
             if iter % variant['test_eval_interval'] == 0 or iter == max_iters-1:
                 test_eval_logs, test_eval_results = trainer.eval_iteration_multienv(
-                    get_prompt, test_prompt_trajectories_list,
+                    get_prompt_fn, test_prompt_trajectories_list,
                     eval_episodes, test_env_name_list, test_info, variant, 
                     test_env_list, iter_num=iter + 1, 
                     print_logs=True, no_prompt=variant['no_prompt'], group='test')
@@ -247,10 +262,11 @@ def experiment_mix_env(config_filename, mode):
             # evaluate in train environments (including the first and last iteration)
             if iter % variant['train_eval_interval'] == 0 or iter == max_iters-1:
                 train_eval_logs, train_eval_results = trainer.eval_iteration_multienv(
-                    get_prompt, train_prompt_trajectories_list,
+                    get_prompt_fn, train_prompt_trajectories_list,
                     eval_episodes, train_env_name_list, train_info, variant, 
                     train_env_list, iter_num=iter + 1, 
                     print_logs=True, no_prompt=variant['no_prompt'], group='train')
+                
                 # update logs
                 outputs.update(train_eval_logs)
                 # save evaluation results
@@ -291,10 +307,11 @@ def experiment_mix_env(config_filename, mode):
 
         # evaluate in test environments
         test_eval_logs, test_eval_results = trainer.eval_iteration_multienv(
-                    get_prompt, test_prompt_trajectories_list,
+                    get_prompt_fn, test_prompt_trajectories_list,
                     eval_episodes, test_env_name_list, test_info, variant, 
                     test_env_list, iter_num=eval_iter_num, 
                     print_logs=True, no_prompt=variant['no_prompt'], group='test')
+        
         # save evaluation results
         save_eval_results(eval_results=test_eval_results, 
                         file_name=checkpoint_name+'.pkl', # iteration index starts from 0
@@ -303,7 +320,7 @@ def experiment_mix_env(config_filename, mode):
     
         # evaluate in train environments
         train_eval_logs, train_eval_results = trainer.eval_iteration_multienv(
-                    get_prompt, train_prompt_trajectories_list,
+                    get_prompt_fn, train_prompt_trajectories_list,
                     eval_episodes, train_env_name_list, train_info, variant, 
                     train_env_list, iter_num=eval_iter_num, 
                     print_logs=True, no_prompt=variant['no_prompt'], group='train')
@@ -316,7 +333,7 @@ def experiment_mix_env(config_filename, mode):
 
         
 if __name__ == '__main__':
-    experiment_mix_env(config_filename="cheetah_dir.yaml", mode="train") # mode: ['train', 'eval']
-    #experiment_mix_env(config_filename="cheetah_vel.yaml", mode="train")
+    #experiment_mix_env(config_filename="cheetah_dir.yaml", mode="train") # mode: ['train', 'eval']
+    experiment_mix_env(config_filename="cheetah_vel.yaml", mode="train")
     #experiment_mix_env(config_filename="ant_dir.yaml", mode="train")
     #experiment_mix_env(config_filename="ML1-pick-place-v2.yaml", mode="train")

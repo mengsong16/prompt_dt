@@ -256,6 +256,76 @@ def get_prompt_batch(trajectories_list, prompt_trajectories_list, info, variant,
         return prompt, batch
     return fn
 
+""" goal prompts """
+# get one goal prompt
+def get_goal_prompt(info):
+    device = info['device']
+    goal = info['goal']
+    goal = np.expand_dims(goal, axis=0)
+    goal_dim = goal.shape[0]
+
+    mask = np.ones((1, goal_dim))
+
+    # numpy to torch tensor
+    goal = torch.from_numpy(goal).to(dtype=torch.float32, device=device) # [1, goal_dim]
+    mask = torch.from_numpy(mask).to(device=device) # [1, goal_dim]
+
+    return goal, mask
+
+# get a batch of trajectories and goal prompts
+# Note that for each environment, collect a batch of input trajectories 
+# therefore, total batch size = n_train_env * per_env_batch_size
+def get_goal_prompt_batch(trajectories_list, info, variant, train_env_name_list):
+    per_env_batch_size = variant['per_env_batch_size']
+
+    # Note that batch_size=per_env_batch_size
+    def fn(batch_size=per_env_batch_size):
+        p_goal_list, p_mask_list = [], []
+        s_list, a_list, r_list, d_list, rtg_list, timesteps_list, mask_list = [], [], [], [], [], [], []
+        for env_id, env_name in enumerate(train_env_name_list):
+            # get a single goal prompt
+            goal, mask = get_goal_prompt(info[env_name])
+            # get a batch of goal prompts
+            p_goal = goal.repeat(batch_size, 1)
+            p_mask = mask.repeat(batch_size, 1)
+
+            p_goal_list.append(p_goal)
+            p_mask_list.append(p_mask)
+           
+            # set up get batch function
+            get_batch_fn = get_batch(trajectories_list[env_id], info[env_name], variant) 
+            
+
+            # get a batch of input trajectories
+            batch = get_batch_fn(batch_size=batch_size)
+            s, a, r, d, rtg, timesteps, mask = batch
+            
+            # rewrite reward and return-to-go in input trajectories if necessary
+            if variant['no_r']:
+                r = torch.zeros_like(r)
+            if variant['no_rtg']:
+                rtg = torch.zeros_like(rtg)
+
+            s_list.append(s)
+            a_list.append(a)
+            r_list.append(r)
+            d_list.append(d)
+            rtg_list.append(rtg)
+            timesteps_list.append(timesteps)
+            mask_list.append(mask)
+
+        # from list to tensor
+        p_goal = torch.cat(p_goal_list, dim=0)
+        p_mask = torch.cat(p_mask_list, dim=0)
+        s, a, r, d = torch.cat(s_list, dim=0), torch.cat(a_list, dim=0), torch.cat(r_list, dim=0), torch.cat(d_list, dim=0)
+        rtg, timesteps, mask = torch.cat(rtg_list, dim=0), torch.cat(timesteps_list, dim=0), torch.cat(mask_list, dim=0)
+        
+        prompt = p_goal, p_mask
+        batch = s, a, r, d, rtg, timesteps, mask
+
+        return prompt, batch
+    return fn    
+
 """ batches """
 def numpy_to_tensor(s, a, r, d, rtg, timesteps, mask, device):
     s = torch.from_numpy(np.concatenate(s, axis=0)).to(dtype=torch.float32, device=device)
@@ -489,6 +559,7 @@ def discount_cumsum(x, gamma):
     for t in reversed(range(x.shape[0] - 1)):
         discount_cumsum[t] = x[t] + gamma * discount_cumsum[t + 1]
     return discount_cumsum
+
 
 
 

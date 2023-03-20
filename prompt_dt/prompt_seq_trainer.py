@@ -47,7 +47,8 @@ class PromptSequenceTrainer:
 
     # train for one step
     def train_step_mix(self, no_prompt):
-        # get trajectory prompt batch and trajectory batch
+        # get prompt batch and trajectory batch
+        # no matter whether we actually use prompt or not
         prompt, batch = self.get_prompt_batch_fn()
         states, actions, rewards, dones, rtg, timesteps, attention_mask = batch
         action_target = torch.clone(actions)
@@ -104,11 +105,16 @@ class PromptSequenceTrainer:
             self.eval_fns = [eval_episodes(tar, info[env_name], variant, env_list[env_id], env_name) for tar in info[env_name]['env_targets']]
             
             if not no_prompt:
-                # set up get one prompt fn and its parameters
-                current_get_prompt_fn = get_prompt_fn(prompt_trajectories_list[env_id], info[env_name], variant)
-                # get a single prompt since we evalute one episode at one time: [number_segments, segment_length, state_dim]
-                # concatenate its prompt segments into: [1, prompt_length, state_dim]
-                current_prompt = flatten_prompt(current_get_prompt_fn(), batch_size=1)
+                if variant['prompt_method'] == "traj_prompt":
+                    # set up get one prompt fn and its parameters
+                    current_get_prompt_fn = get_prompt_fn(prompt_trajectories_list[env_id], info[env_name], variant)
+                    # get a single prompt since we evalute one episode at one time: [number_segments, segment_length, state_dim]
+                    # concatenate its prompt segments info: [1, prompt_length, state_dim]
+                    current_prompt = flatten_prompt(current_get_prompt_fn(), batch_size=1)
+                elif variant['prompt_method'] == "goal_prompt":
+                    # get a single prompt 
+                    current_prompt = get_prompt_fn(info[env_name])
+
             else:
                 current_prompt = None
             
