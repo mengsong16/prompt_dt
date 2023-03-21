@@ -54,7 +54,8 @@ class PromptDecisionTransformer(nn.Module):
         # embed stacked input
         self.embed_ln = nn.LayerNorm(hidden_size)
        
-        # note: we don't predict states or returns for the paper
+        # note: we don't predict states or returns for the paper, but we keep the return and state decoder here
+        # input of decoder has batch size B*L (L = prompt_seq_length + input_seq_length)
         self.predict_state = torch.nn.Linear(hidden_size, self.state_dim)
         self.predict_action = nn.Sequential(
             *([nn.Linear(hidden_size, self.act_dim)] + ([nn.Tanh()] if action_tanh else []))
@@ -174,13 +175,17 @@ class PromptDecisionTransformer(nn.Module):
             # traj_prompt: [32, 25, 3, 128] --> [32, 3, 25, 128]
             # goal_prompt: [32, 21, 3, 128] --> [32, 3, 21, 128]
             x = x.reshape(batch_size, -1, 3, self.hidden_size).permute(0, 2, 1, 3) 
+        
 
-        # note here all the prompt are pre-append to x, but when return only return the last [:, -seq_length:, :] corresponding to batch data
-        # get predictions
-        # x[:,2] = x[:,2,:,:]
-        return_preds = self.predict_return(x[:,2])[:, -seq_length:, :]  # predict next return given state and action
-        state_preds = self.predict_state(x[:,2])[:, -seq_length:, :]    # predict next state given state and action
-        action_preds = self.predict_action(x[:,1])[:, -seq_length:, :]  # predict next action given state
+        # note here all the prompts are left-appended to x, so only return the last [:, -seq_length:, :] corresponding to batch data
+        # (Rtg, s, a) sequence --> get predictions
+        # x[:,2] = x[:,2,:,:] i.e. [32, 21, 128] (not equal to x[:,1:3,:,:])
+        # x[:,1] = x[:,1,:,:] i.e. [32, 21, 128]
+        # decoder input: [B, L, hidden_dimension] (L = prompt_seq_length + input_seq_length)
+        # decoder output: [B, L, action_dimension] (e.g. [32, 21, 6])
+        return_preds = self.predict_return(x[:,2])[:, -seq_length:, :]  # predict (next) prompt+return sequence given prompt+action feature sequence (given state and action?)
+        state_preds = self.predict_state(x[:,2])[:, -seq_length:, :]    # predict (next) prompt+state sequence given prompt+action feature sequence (given state and action?)
+        action_preds = self.predict_action(x[:,1])[:, -seq_length:, :]  # predict (next) prompt+action sequence given prompt+state feature sequence
 
         return state_preds, action_preds, return_preds
 

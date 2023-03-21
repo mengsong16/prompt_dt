@@ -51,6 +51,7 @@ class PromptSequenceTrainer:
         # no matter whether we actually use prompt or not
         prompt, batch = self.get_prompt_batch_fn()
         states, actions, rewards, dones, rtg, timesteps, attention_mask = batch
+        # Note that input action sequence is exactly the ground truth output action sequence
         action_target = torch.clone(actions)
         
         # Note that 
