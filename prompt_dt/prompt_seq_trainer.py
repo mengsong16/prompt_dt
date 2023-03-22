@@ -13,16 +13,27 @@ import os
 
 class PromptSequenceTrainer:
 
-    def __init__(self, model, optimizer, loss_fn,
+    def __init__(self, model, optimizer, loss_fn_type,
                  scheduler=None, eval_fns=None, get_prompt_batch_fn=None):
         self.model = model
         self.optimizer = optimizer
-        self.loss_fn = loss_fn
+        self.loss_fn_type = loss_fn_type
         self.scheduler = scheduler
         self.eval_fns = [] if eval_fns is None else eval_fns
 
         # get_prompt_batch_fn = get_prompt_batch(train_trajectories_list, train_prompt_trajectories_list, train_info, variant, train_env_name_list)
         self.get_prompt_batch_fn = get_prompt_batch_fn # function with parameters
+
+        # set up loss function
+        if self.loss_fn_type == 'predict_rtg':
+            self.loss_fn = lambda s_hat, a_hat, rtg_hat, s, a, rtg: torch.mean((a_hat - a) ** 2) + torch.mean((rtg_hat - rtg)** 2)
+        elif self.loss_fn_type == 'predict_reward':
+            self.loss_fn = lambda s_hat, a_hat, r_hat, s, a, r: torch.mean((a_hat - a) ** 2) + torch.mean((r_hat - r)** 2)
+        elif self.loss_fn_type == 'regular':
+            self.loss_fn = lambda s_hat, a_hat, r_hat, s, a, r: torch.mean((a_hat - a) ** 2)
+        else:
+            print("Error: Undefined loss function")
+            exit()
 
     # train for one iteration
     def pure_train_iteration_mix(self, num_steps, no_prompt):
@@ -58,6 +69,7 @@ class PromptSequenceTrainer:
         # states.shape: [B, segment_length, state_dim]
         # rtg.shape: [B, segment_length+1, 1]
         # rtg[:,:-1].shape: [B, segment_length, 1]
+        # rewards are not used in model.forward
 
         if no_prompt:
             state_preds, action_preds, reward_preds = self.model.forward(
@@ -68,14 +80,40 @@ class PromptSequenceTrainer:
                 states, actions, rewards, rtg[:,:-1], timesteps, attention_mask=attention_mask, prompt=prompt
             )
 
+        # apply attention mask
+        # note that action_preds already get rid of the prompt part
+        # therefore only use the input sequence mask, not the prompt mask
         act_dim = action_preds.shape[2]
         action_preds = action_preds.reshape(-1, act_dim)[attention_mask.reshape(-1) > 0]
         action_target = action_target.reshape(-1, act_dim)[attention_mask.reshape(-1) > 0]
 
-        loss = self.loss_fn(
-            None, action_preds, None,
-            None, action_target, None,
-        )
+        # inputs: s_hat, a_hat, r_hat/rtg_hat, s, a, r/rtg
+        if self.loss_fn_type == 'regular':
+            loss = self.loss_fn(
+                None, action_preds, None,
+                None, action_target, None,
+            )
+        elif self.loss_fn_type == 'predict_rtg':
+            rtg_target = torch.clone(rtg[:,:-1])
+            rtg_preds = reward_preds.reshape(-1, 1)[attention_mask.reshape(-1) > 0]
+            rtg_target = rtg_target.reshape(-1, 1)[attention_mask.reshape(-1) > 0]
+
+            loss = self.loss_fn(
+                None, action_preds, rtg_preds,
+                None, action_target, rtg_target,
+            )
+        elif self.loss_fn_type == 'predict_reward':
+            reward_target = torch.clone(rewards)
+            reward_preds = reward_preds.reshape(-1, 1)[attention_mask.reshape(-1) > 0]
+            reward_target = reward_target.reshape(-1, 1)[attention_mask.reshape(-1) > 0]
+
+            loss = self.loss_fn(
+                None, action_preds, reward_preds,
+                None, action_target, reward_target,
+            )
+        else:
+            print("Error: Undefined loss function")
+            exit()
 
         self.optimizer.zero_grad()
 

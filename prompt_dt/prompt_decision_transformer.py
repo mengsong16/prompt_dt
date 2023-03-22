@@ -60,7 +60,8 @@ class PromptDecisionTransformer(nn.Module):
         self.predict_action = nn.Sequential(
             *([nn.Linear(hidden_size, self.act_dim)] + ([nn.Tanh()] if action_tanh else []))
         )
-        self.predict_return = torch.nn.Linear(hidden_size, 1)
+        #self.predict_return = torch.nn.Linear(hidden_size, 1)
+        self.predict_return = torch.nn.Linear(hidden_size*2, 1)
 
         # prompt encoders
         if self.no_prompt == False:
@@ -183,10 +184,12 @@ class PromptDecisionTransformer(nn.Module):
         # x[:,1] = x[:,1,:,:] i.e. [32, 21, 128]
         # decoder input: [B, L, hidden_dimension] (L = prompt_seq_length + input_seq_length)
         # decoder output: [B, L, action_dimension] (e.g. [32, 21, 6])
-        return_preds = self.predict_return(x[:,2])[:, -seq_length:, :]  # predict (next) prompt+return sequence given prompt+action feature sequence (given state and action?)
+        return_pred_inputs = torch.cat((x[:,1], x[:,2]), dim=2)  # [B, L, hidden_dimension*2]
+        return_preds = self.predict_return(return_pred_inputs)[:, -seq_length:, :] # [B, L, 1]
+        #return_preds = self.predict_return(x[:,2])[:, -seq_length:, :]  # predict (next) prompt+return sequence given prompt+action feature sequence (given state and action?)
         state_preds = self.predict_state(x[:,2])[:, -seq_length:, :]    # predict (next) prompt+state sequence given prompt+action feature sequence (given state and action?)
         action_preds = self.predict_action(x[:,1])[:, -seq_length:, :]  # predict (next) prompt+action sequence given prompt+state feature sequence
-
+        # note that we have already exclude the prompt part from state_preds, action_preds, return_preds
         return state_preds, action_preds, return_preds
 
     # input a sequence of (r,s,t) with arbitrary length
@@ -235,4 +238,6 @@ class PromptDecisionTransformer(nn.Module):
         _, action_preds, return_preds = self.forward(
             states, actions, None, returns_to_go, timesteps, attention_mask=attention_mask, **kwargs)
 
+        # the last action in the first action sequence of the batch
+        # action_preds[0,-1] = action_preds[0,-1,:]
         return action_preds[0,-1]

@@ -52,7 +52,8 @@ num_eval_episodes: 20 #50
 # normalize state or not
 # for both train and evaluation
 # for both train trajectory and prompt trajectory 
-no_state_normalize: false 
+no_state_normalize: false
+loss_fn: "regular" #["regular", "predict_rtg", "predict_reward"] 
 
 # evaluation
 load_path: "cheetah_dir-2-env-expert-no_prompt-s1-20230314-220409" # where to load the model

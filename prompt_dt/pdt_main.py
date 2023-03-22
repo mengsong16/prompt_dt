@@ -180,13 +180,14 @@ def experiment_mix_env(config_filename, mode):
         print("Error: undefined prompt method")
         exit()
     
+
     trainer = PromptSequenceTrainer(
         model=model,
         optimizer=optimizer,
+        loss_fn_type = variant['loss_fn'],
         scheduler=scheduler,
-        loss_fn=lambda s_hat, a_hat, r_hat, s, a, r: torch.mean((a_hat - a) ** 2),
         eval_fns=None,
-        get_prompt_batch_fn=get_prompt_batch_fn
+        get_prompt_batch_fn=get_prompt_batch_fn,   
     )
 
     print("======> Trainer created")
@@ -202,7 +203,13 @@ def experiment_mix_env(config_filename, mode):
         else:
             prompt_method = variant['prompt_method']
         
-        group_name = f'{base_env}-{str(num_train_env)}-env-{train_dataset_mode}-{prompt_method}'
+        suffix = ""
+        if variant['loss_fn'] == 'predict_rtg':
+            suffix += "-pred_rtg"
+        elif variant['loss_fn'] == 'predict_reward':
+            suffix += "-pred_reward"
+
+        group_name = f'{base_env}-{str(num_train_env)}-env-{train_dataset_mode}-{prompt_method}' + suffix
         now = datetime.datetime.now()
         experiment_name = "s%d-"%(seed) + now.strftime("%Y%m%d-%H%M%S").lower() 
 
@@ -333,7 +340,7 @@ def experiment_mix_env(config_filename, mode):
 
         
 if __name__ == '__main__':
-    experiment_mix_env(config_filename="cheetah_dir.yaml", mode="train") # mode: ['train', 'eval']
+    #experiment_mix_env(config_filename="cheetah_dir.yaml", mode="train") # mode: ['train', 'eval']
     #experiment_mix_env(config_filename="cheetah_vel.yaml", mode="train")
     #experiment_mix_env(config_filename="ant_dir.yaml", mode="train")
-    #experiment_mix_env(config_filename="ML1-pick-place-v2.yaml", mode="train")
+    experiment_mix_env(config_filename="ML1-pick-place-v2.yaml", mode="train")
