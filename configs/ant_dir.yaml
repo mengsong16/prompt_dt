@@ -26,13 +26,14 @@ no_rtg: false # input includes rtg or not
 
 # prompt
 no_prompt: false
-prompt_method: "goal_prompt" #["traj_prompt", "goal_prompt"]
+prompt_method: "traj_prompt" #["traj_prompt", "goal_prompt"]
 traj_prompt:
   prompt_episode: 1
   prompt_length: 5 #2
   # if true randomly select prompt trajectory
   # otherwise prefer prompt trajectory with higher return
-  stochastic_prompt: true 
+  stochastic_prompt: true
+  use_last_few: false 
 
 # training
 per_env_batch_size: 16 # number of trajectory segments per batch in each training environment
