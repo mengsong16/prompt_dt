@@ -8,7 +8,7 @@ import os
 import pickle 
 
 """ evaluation """
-
+# evaluate policy with a given target rtg for n episodes in a test environment
 def eval_episodes(target_rew, info, variant, env, env_name):
     max_ep_len, state_mean, state_std, scale = info['max_ep_len'], info['state_mean'], info['state_std'], info['scale']
     state_dim, act_dim, device = info['state_dim'], info['act_dim'], info['device']
@@ -48,8 +48,9 @@ def eval_episodes(target_rew, info, variant, env, env_name):
             }, returns, episode_lengths, target_rew
     return fn
 
-# evaluate policy for one episode in a test environment
+# evaluate policy with a given target rtg for one episode in a test environment
 # w or w/o prompt
+# here input target_return has been divided by scale
 def prompt_evaluate_episode_rtg(
         env,
         state_dim,
@@ -159,7 +160,9 @@ def prompt_evaluate_episode_rtg(
 
     return episode_return, infos
 
-# pack the evaluation results for a given (environment, return_target) pair
+# pack the evaluation results for a given (environment, return_target) pair into a dictionary
+# returns is a list
+# episode_lengths is a list
 # target_return is unscaled
 def pack_eval_results_one_env_target(env_id, env_name,
                                     returns, episode_lengths,
@@ -173,12 +176,16 @@ def pack_eval_results_one_env_target(env_id, env_name,
 
     return eval_results
 
-# eval_results is a list of results for each (environment, return_target) pair
+# eval_results is a list of results 
+# each results is for each (environment, return_target) pair
+# all environments are from the same base_env
 def compute_mean_std_one_base_env_multi_targets(eval_results):
     returns = {}
     episode_lengths = {}
     base_env_name = eval_results[0]["env_name"].split('-')[0]
 
+    # returns is a dictionary: group evaluation returns by target rtg across all environments
+    # episode_lengths is a dictionary: group evaluation episode lengths by target rtg across all environments
     for cur_env_target_results in eval_results:
         cur_target_return = cur_env_target_results["target_return"]
         # returns
@@ -194,6 +201,7 @@ def compute_mean_std_one_base_env_multi_targets(eval_results):
             episode_lengths[cur_target_return].extend(cur_env_target_results["episode_lengths"])
 
     eval_stats = {}
+    # compute return mean/std and episode length mean/std for reach target rtg
     for target_return, rts in returns.items():
         rts = np.array(rts)
         eval_stats[f'{base_env_name}_target_{target_return}_return_mean'] = np.mean(rts)
@@ -205,6 +213,53 @@ def compute_mean_std_one_base_env_multi_targets(eval_results):
         eval_stats[f'{base_env_name}_target_{target_return}_episode_length_std'] = np.std(epi_lens)
 
     return eval_stats
+
+# normalize a single return
+def normalize_one_return(ret, expert_return, random_return):
+    normalized_return = 100.0 * (ret - random_return) / (expert_return - random_return)
+    return normalized_return
+
+# normalize a list of returns
+def normalize_returns(returns, expert_return, random_return):
+    normalized_returns = []
+    for ret in returns:
+        normalized_return = normalize_one_return(ret, expert_return, random_return)
+        normalized_returns.append(normalized_return)
+
+    return normalized_returns
+
+# eval_results are from the same base env
+def compute_episode_length_normalized_score(eval_results, info):
+    base_env_name = eval_results[0]["env_name"].split('-')[0]
+    all_episode_lengths = []
+    all_normalized_returns = []
+    for cur_env_target_results in eval_results:
+        env_name = cur_env_target_results["env_name"]
+        # get evaluation returns and episode lengths for current (env, target_rtg) pair
+        returns = cur_env_target_results["returns"]
+        # no need to normalize episode length since envs from the same base env has the same maximum episode length
+        episode_lengths = cur_env_target_results["episode_lengths"]
+        # normalize return to [0, 100]
+        expert_return = info[env_name]['max_return']
+        random_return = info[env_name]['random_return']
+        normalized_returns = normalize_returns(returns, expert_return, random_return)
+        # collect data
+        all_episode_lengths.extend(episode_lengths)
+        all_normalized_returns.extend(normalized_returns)
+    
+    # compute return mean/std and episode length mean/std
+    eval_stats = {}
+    all_episode_lengths = np.array(all_episode_lengths)
+    all_normalized_returns = np.array(all_normalized_returns)
+
+    eval_stats[f'{base_env_name}_return_mean'] = np.mean(all_normalized_returns)
+    eval_stats[f'{base_env_name}_return_std'] = np.std(all_normalized_returns)
+    eval_stats[f'{base_env_name}_episode_length_mean'] = np.mean(all_episode_lengths)
+    eval_stats[f'{base_env_name}_episode_length_std'] = np.std(all_episode_lengths)
+
+    return eval_stats
+
+
 
 def save_eval_results(eval_results, file_name, folder):
     if not os.path.exists(folder):

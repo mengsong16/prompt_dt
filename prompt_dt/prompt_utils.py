@@ -25,7 +25,7 @@ def load_train_test_env_name_list(env_name):
     for task_ind in task_config.test_tasks:
         test_env_name_list.append(env_name +'-'+ str(task_ind))
     
-    print("======================== traing envs:%d =============================="%(len(train_env_name_list)))
+    print("======================== training envs:%d =============================="%(len(train_env_name_list)))
     print(train_env_name_list)
     print("======================== test envs: %d ================================"%(len(test_env_name_list)))
     print(test_env_name_list)
@@ -77,7 +77,7 @@ def gen_env(env_name, config_save_path, seed):
         task = ml1.train_tasks[task_idx]
         env.set_task(task)  # set task
         max_ep_len = 500 
-        env_targets= [650]
+        env_targets = [650]
         scale = 650.
     else:
         raise NotImplementedError
@@ -457,7 +457,8 @@ def get_total_data_mean_std(trajectories):
 
     return state_mean, state_std
 
-# process trajectories from a specific environment
+# process trajectories from a specific environment of specific quality, e.g. expert
+# dataset indicates the data quality
 def process_dataset(trajectories, reward_mode, env_name, dataset, pct_traj, verbose):
     # parse all path information into separate lists: states, traj_lens, returns
     # rewrite the reward mode of the trajectories
@@ -554,6 +555,7 @@ def process_info(env_name_list, trajectories_list, info, reward_mode, dataset, p
         if variant['average_state_mean']:
             info[env_name]['state_mean'] = variant['total_state_mean']
             info[env_name]['state_std'] = variant['total_state_std']
+        
     
     return info
 
@@ -566,6 +568,136 @@ def discount_cumsum(x, gamma):
         discount_cumsum[t] = x[t] + gamma * discount_cumsum[t + 1]
     return discount_cumsum
 
+""" return processing """
+def compute_max_return_random_return(base_env):
+    train_env_name_list, test_env_name_list = load_train_test_env_name_list(base_env)
+
+    # for training dataset
+    print("======================== processing training envs ==============================")
+    train_return_info = compute_max_return_random_return_for_one_dataset(base_env, train_env_name_list)
+    # for test dataset
+    print("======================== processing test envs ==============================")
+    test_return_info = compute_max_return_random_return_for_one_dataset(base_env, test_env_name_list)
+    # combine two dictionaries
+    return_info = train_return_info.copy()
+    return_info.update(test_return_info)
+    
+    # print results
+    print("-"*80)
+    env_num = 0
+    for key, value in return_info.items():
+        print(key, value)
+        env_num += 1
+    print("Processed return information for %d environments from %s"%(env_num, base_env))
+    print("-"*80)
+    
+    # save
+    filename = base_env + "-return-info.pkl"
+    save_path = os.path.join(data_path, base_env, filename)
+    with open(save_path, 'wb') as f:
+        pickle.dump(return_info, f)
+
+    print('======> Return information saved to ', save_path)
+
+
+def compute_max_return_random_return_for_one_dataset(base_env, env_name_list):
+    return_info = {}
+    # load envs and env infos
+    env_info, env_list = get_env_list(env_name_list, task_config_path, device='cuda:0', seed=1)
+    # load expert trajectories and expert prompt trajectories
+    trajectories_list, prompt_trajectories_list, trajectory_num, prompt_trajectory_num = load_data_prompt(env_name_list, data_path, 'expert', 'expert', base_env)
+
+    # for each environment, get max return from expert dataset
+    for i, env_name in enumerate(env_name_list):
+        return_info[env_name] = {}
+        # trajectories from current environment
+        cur_trajectories = trajectories_list[i]
+        # returns from current environment
+        cur_expert_returns = []
+        for path in cur_trajectories:
+            cur_expert_returns.append(path['rewards'].sum()) # undiscounted return
+        
+        cur_expert_returns = np.array(cur_expert_returns)
+        max_return = np.max(cur_expert_returns)
+        return_info[env_name]['max_return'] = max_return
+    
+    print("Max return computation done.")
+    
+    # for each environment, get random return by running for 100 episodes
+    num_eval_episodes = 100
+    for i, env_name in enumerate(env_name_list):
+        env = env_list[i]
+        max_ep_len = env_info[env_name]['max_ep_len']
+        cur_random_returns = []
+        for _ in range(num_eval_episodes):
+            episode_return = 0.0
+            state = env.reset()
+            for t in range(max_ep_len):
+                action = env.action_space.sample()
+                state, reward, done, infos = env.step(action)
+                episode_return += reward
+                if done:
+                    break
+            
+            cur_random_returns.append(episode_return)
+
+        cur_random_returns = np.array(cur_random_returns)
+        average_random_return = np.mean(cur_random_returns)
+        return_info[env_name]['random_return'] = average_random_return
+
+    print("Random return computation done.")
+
+    return return_info
+
+def load_return_info(base_env, verbose=False):
+    # load
+    filename = base_env + "-return-info.pkl"
+    load_path = os.path.join(data_path, base_env, filename)
+    with open(load_path, 'rb') as f:
+        return_info = pickle.load(f)
+
+    print('======> Loaded return information from ', load_path)
+    
+    # print results
+    if verbose:
+        print("-"*80)
+        env_num = 0
+        for key, value in return_info.items():
+            print(key, value)
+            env_num += 1
+        print("Read return information for %d environments from %s"%(env_num, base_env))
+        print("-"*80)
+    
+    return return_info
+
+def replace_target_return(train_info, test_info, train_env_name_list, test_env_name_list, return_info):
+    for env_name in train_env_name_list:
+        train_info[env_name]['env_targets'] = [return_info[env_name]['max_return']]
+    
+    print("======> Train environment target rtg replaced")
+
+    
+    for env_name in test_env_name_list:
+        test_info[env_name]['env_targets'] = [return_info[env_name]['max_return']]
+    
+    print("======> Test environment target rtg replaced")
+
+def append_return_info(train_info, test_info, train_env_name_list, test_env_name_list, return_info):
+    for env_name in train_env_name_list:
+        train_info[env_name]['max_return'] = return_info[env_name]['max_return']
+        train_info[env_name]['random_return'] = return_info[env_name]['random_return']
+    
+    print("======> Append max rtg and random rtg to train environment info")
+
+    for env_name in test_env_name_list:
+        test_info[env_name]['max_return'] = return_info[env_name]['max_return']
+        test_info[env_name]['random_return'] = return_info[env_name]['random_return']
+    
+    print("======> Append max rtg and random rtg to test environment info")
 
 
 
+if __name__ == '__main__':
+    # ['cheetah_dir', 'cheetah_vel', 'ant_dir', 'ML1-pick-place-v2']
+    #compute_max_return_random_return(base_env="ML1-pick-place-v2") 
+    load_return_info('ML1-pick-place-v2', verbose=True)

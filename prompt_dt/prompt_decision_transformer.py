@@ -152,10 +152,10 @@ class PromptDecisionTransformer(nn.Module):
                 print("Error: undefined prompt method")
                 exit()
 
-        # concatenate input sequence and prompt sequence
-        # assume sample one prompt for each trajectory in the batch (happen for both train and evaluation)
-        stacked_inputs = torch.cat((prompt_stacked_inputs, stacked_inputs), dim=1) # [32, 75=60+15, 128], [32, 63=60+3, 128]
-        stacked_attention_mask = torch.cat((prompt_stacked_attention_mask, stacked_attention_mask), dim=1) # [32, 75=60+15], [32, 63=60+3]
+            # concatenate input sequence and prompt sequence
+            # assume sample one prompt for each trajectory in the batch (happen for both train and evaluation)
+            stacked_inputs = torch.cat((prompt_stacked_inputs, stacked_inputs), dim=1) # [32, 75=60+15, 128], [32, 63=60+3, 128]
+            stacked_attention_mask = torch.cat((prompt_stacked_attention_mask, stacked_attention_mask), dim=1) # [32, 75=60+15], [32, 63=60+3]
 
         # we feed in the input embeddings (not word indices as in NLP) to the model
         transformer_outputs = self.transformer(

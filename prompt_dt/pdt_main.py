@@ -18,7 +18,7 @@ from prompt_dt.prompt_decision_transformer import PromptDecisionTransformer
 from prompt_dt.prompt_seq_trainer import PromptSequenceTrainer
 from prompt_dt.prompt_utils import get_env_list
 from prompt_dt.prompt_utils import get_prompt_batch, get_prompt, get_batch, get_goal_prompt_batch, get_goal_prompt
-from prompt_dt.prompt_utils import get_total_data_mean_std, load_data_prompt, process_info
+from prompt_dt.prompt_utils import get_total_data_mean_std, load_data_prompt, process_info, load_return_info, replace_target_return, append_return_info
 from prompt_dt.prompt_utils import load_train_test_env_name_list, get_total_num_trajectory
 from prompt_dt.utils.path import *
 from prompt_dt.utils.other import parse_config, seed_other
@@ -58,10 +58,10 @@ def experiment_mix_env(config_filename, mode):
     ######
     train_env_name_list, test_env_name_list = load_train_test_env_name_list(base_env)
 
-    # training envs
+    # training envs (already written info for each env)
     train_info, train_env_list = get_env_list(train_env_name_list, task_config_path, device, seed)
     
-    # test envs
+    # test envs (already written info for each env)
     test_info, test_env_list = get_env_list(test_env_name_list, task_config_path, device, seed)
 
     print("======> Loaded %d train envs"%(len(train_env_list)))
@@ -106,7 +106,7 @@ def experiment_mix_env(config_filename, mode):
 
     reward_mode = variant.get('reward_mode', 'normal')
     pct_traj = float(variant.get('pct_traj', 1.))
-    # process train dataset info
+    # process train dataset info (continue writing info for each env)
     # print("="*80)
     # print("Train environments info")
     # print("="*80)
@@ -114,7 +114,7 @@ def experiment_mix_env(config_filename, mode):
                               train_info, reward_mode, train_dataset_mode, 
                               pct_traj, variant, verbose=False)
 
-    # process test dataset info
+    # process test dataset info (continue writing info for each env)
     # print("="*80)
     # print("Test environments info")
     # print("="*80)
@@ -124,6 +124,17 @@ def experiment_mix_env(config_filename, mode):
 
     print("======> Train and test trajectories processed ")
 
+    return_info = load_return_info(base_env, verbose=False)
+    print("======> Return information loaded")
+
+    # replace the per base env target rtg with per env target rtg
+    if variant['max_return_as_target_rtg']:
+        replace_target_return(train_info, test_info, train_env_name_list, test_env_name_list, return_info)
+
+    # append max rtg and random rtg to env info
+    if variant['compare_normalized_returns']:
+        append_return_info(train_info, test_info, train_env_name_list, test_env_name_list, return_info)
+    
     #exit()
 
     ######
@@ -345,6 +356,6 @@ def experiment_mix_env(config_filename, mode):
         
 if __name__ == '__main__':
     #experiment_mix_env(config_filename="cheetah_dir.yaml", mode="train") # mode: ['train', 'eval']
-    experiment_mix_env(config_filename="cheetah_vel.yaml", mode="train")
-    #experiment_mix_env(config_filename="ant_dir.yaml", mode="train")
+    #experiment_mix_env(config_filename="cheetah_vel.yaml", mode="train")
+    experiment_mix_env(config_filename="ant_dir.yaml", mode="train")
     #experiment_mix_env(config_filename="ML1-pick-place-v2.yaml", mode="train")

@@ -6,7 +6,7 @@ import torch
 import time
 from wandb import env
 from prompt_dt.prompt_utils import flatten_prompt
-from prompt_dt.prompt_evaluate_episodes import pack_eval_results_one_env_target, compute_mean_std_one_base_env_multi_targets
+from prompt_dt.prompt_evaluate_episodes import pack_eval_results_one_env_target, compute_mean_std_one_base_env_multi_targets, compute_episode_length_normalized_score
 import copy
 import os
 
@@ -124,7 +124,7 @@ class PromptSequenceTrainer:
 
         return loss.detach().cpu().item()
 
-
+    # group: train or test
     def eval_iteration_multienv(self, get_prompt_fn, prompt_trajectories_list, 
                                 eval_episodes, env_name_list, info, 
                                 variant, env_list, iter_num, 
@@ -140,7 +140,7 @@ class PromptSequenceTrainer:
         eval_start = time.time()
         for env_id, env_name in enumerate(env_name_list):
             
-            # set up an eval_fn and its parameters for each target return
+            # set up an eval_fn and its parameters for each target return of current env
             self.eval_fns = [eval_episodes(tar, info[env_name], variant, env_list[env_id], env_name) for tar in info[env_name]['env_targets']]
             
             if not no_prompt:
@@ -157,7 +157,7 @@ class PromptSequenceTrainer:
             else:
                 current_prompt = None
             
-            # evaluate in current environment for num_eval_episodes
+            # evaluate an env with a given target rtg in current environment for num_eval_episodes
             for eval_fn in self.eval_fns:
                 # output_logs: return mean and std
                 output_logs, returns, episode_lengths, target_return = eval_fn(self.model, prompt=current_prompt)
@@ -170,7 +170,11 @@ class PromptSequenceTrainer:
                 # for k, v in output_logs.items():
                 #     logs[f'{group}-evaluation/{k}'] = v
 
-        eval_stats = compute_mean_std_one_base_env_multi_targets(eval_results)
+        # organize evaluation stats
+        if variant['compare_normalized_returns']:
+            eval_stats = compute_episode_length_normalized_score(eval_results, info)
+        else:
+            eval_stats = compute_mean_std_one_base_env_multi_targets(eval_results)
         
         for k, v in eval_stats.items():
             logs[f'{group}-evaluation/{k}'] = v
