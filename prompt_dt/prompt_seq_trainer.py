@@ -149,6 +149,7 @@ class PromptSequenceTrainer:
                     current_get_prompt_fn = get_prompt_fn(prompt_trajectories_list[env_id], info[env_name], variant)
                     # get a single prompt since we evalute one episode at one time: [number_segments, segment_length, state_dim]
                     # concatenate its prompt segments info: [1, prompt_length, state_dim]
+                    # Note that rtg's sequence length has been decreased 1 to the correct length in flatten_prompt
                     current_prompt = flatten_prompt(current_get_prompt_fn(), batch_size=1)
                 elif variant['prompt_method'] == "goal_prompt":
                     # get a single prompt 

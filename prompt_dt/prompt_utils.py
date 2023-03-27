@@ -176,7 +176,7 @@ def get_prompt(prompt_trajectories, info, variant):
                 # select the trajectory with the return from highest to lowest
                 traj = prompt_trajectories[int(sorted_inds[-i])] 
 
-            # si is the beginning of the last segment of length max_len in the trajectory
+            # si is the beginning of the last segment of length max_len in the trajectory before the last state
             # the cropped segment must have length max_len
             if variant['traj_prompt']['use_last_few']:
                 si = max(0, traj['rewards'].shape[0] - max_len -1) # select the last part of the traj with length max_len
@@ -222,7 +222,9 @@ def get_prompt_batch(trajectories_list, prompt_trajectories_list, info, variant,
             get_batch_fn = get_batch(trajectories_list[env_id], info[env_name], variant) 
             
             # get a batch of trajectory prompts
-            prompt = flatten_prompt(get_prompt_fn(batch_size), batch_size) # flatten_prompt changes nothing
+            # Note that rtg's sequence length has been decreased 1 to the correct length in flatten_prompt
+            # Otherwise, flatten_prompt changes nothing
+            prompt = flatten_prompt(get_prompt_fn(batch_size), batch_size) 
             p_s, p_a, p_r, p_d, p_rtg, p_timesteps, p_mask = prompt
             p_s_list.append(p_s)
             p_a_list.append(p_a)

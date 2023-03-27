@@ -120,10 +120,13 @@ class PromptDecisionTransformer(nn.Module):
                 prompt_seq_length = prompt_states.shape[1]
                 prompt_state_embeddings = self.prompt_embed_state(prompt_states)
                 prompt_action_embeddings = self.prompt_embed_action(prompt_actions)
-                if prompt_returns_to_go.shape[1] % 10 == 1:
-                    prompt_returns_embeddings = self.prompt_embed_return(prompt_returns_to_go[:,:-1])
-                else:
-                    prompt_returns_embeddings = self.prompt_embed_return(prompt_returns_to_go)
+
+                # if prompt_returns_to_go.shape[1] % 10 == 1:
+                #     # [B,N,1] --> [B,N-1,1] ? This is already done in flatten_prompt
+                #     prompt_returns_embeddings = self.prompt_embed_return(prompt_returns_to_go[:,:-1])
+                # else:
+                prompt_returns_embeddings = self.prompt_embed_return(prompt_returns_to_go)
+
                 prompt_time_embeddings = self.prompt_embed_timestep(prompt_timesteps)
 
                 prompt_state_embeddings = prompt_state_embeddings + prompt_time_embeddings

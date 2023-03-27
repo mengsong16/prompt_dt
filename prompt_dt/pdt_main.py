@@ -223,6 +223,8 @@ def experiment_mix_env(config_filename, mode):
         if variant['prompt_method'] == "traj_prompt":
             if variant['traj_prompt']['use_last_few'] == False:
                 suffix += "-random_crop"
+        
+        suffix += variant['suffix']
 
         group_name = f'{base_env}-{str(num_train_env)}-env-{train_dataset_mode}-{prompt_method}' + suffix
         now = datetime.datetime.now()
@@ -357,5 +359,5 @@ def experiment_mix_env(config_filename, mode):
 if __name__ == '__main__':
     #experiment_mix_env(config_filename="cheetah_dir.yaml", mode="train") # mode: ['train', 'eval']
     #experiment_mix_env(config_filename="cheetah_vel.yaml", mode="train")
-    experiment_mix_env(config_filename="ant_dir.yaml", mode="train")
-    #experiment_mix_env(config_filename="ML1-pick-place-v2.yaml", mode="train")
+    #experiment_mix_env(config_filename="ant_dir.yaml", mode="train")
+    experiment_mix_env(config_filename="ML1-pick-place-v2.yaml", mode="train")
