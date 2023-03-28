@@ -17,7 +17,7 @@ import json
 from prompt_dt.prompt_decision_transformer import PromptDecisionTransformer
 from prompt_dt.prompt_seq_trainer import PromptSequenceTrainer
 from prompt_dt.prompt_utils import get_env_list
-from prompt_dt.prompt_utils import get_prompt_batch, get_prompt, get_batch, get_goal_prompt_batch, get_goal_prompt
+from prompt_dt.prompt_utils import get_prompt_batch, get_prompt, get_batch, get_goal_prompt_batch, get_goal_prompt, get_goal_state_prompt
 from prompt_dt.prompt_utils import get_total_data_mean_std, load_data_prompt, process_info, load_return_info, replace_target_return, append_return_info
 from prompt_dt.prompt_utils import load_train_test_env_name_list, get_total_num_trajectory
 from prompt_dt.utils.path import *
@@ -185,8 +185,11 @@ def experiment_mix_env(config_filename, mode):
         get_prompt_batch_fn = get_prompt_batch(train_trajectories_list, train_prompt_trajectories_list, train_info, variant, train_env_name_list)
         get_prompt_fn = get_prompt
     elif variant['prompt_method'] == "goal_prompt":
-        get_prompt_batch_fn = get_goal_prompt_batch(train_trajectories_list, train_info, variant, train_env_name_list)
+        get_prompt_batch_fn = get_goal_prompt_batch(train_trajectories_list, train_prompt_trajectories_list, train_info, variant, train_env_name_list)
         get_prompt_fn = get_goal_prompt
+    elif variant['prompt_method'] == "goal_state_prompt":
+        get_prompt_batch_fn = get_goal_prompt_batch(train_trajectories_list, train_prompt_trajectories_list, train_info, variant, train_env_name_list)
+        get_prompt_fn = get_goal_state_prompt
     else:
         print("Error: undefined prompt method")
         exit()
@@ -360,6 +363,6 @@ def experiment_mix_env(config_filename, mode):
         
 if __name__ == '__main__':
     #experiment_mix_env(config_filename="cheetah_dir.yaml", mode="train") # mode: ['train', 'eval']
-    #experiment_mix_env(config_filename="cheetah_vel.yaml", mode="train")
+    experiment_mix_env(config_filename="cheetah_vel.yaml", mode="train")
     #experiment_mix_env(config_filename="ant_dir.yaml", mode="train")
-    experiment_mix_env(config_filename="ML1-pick-place-v2.yaml", mode="train")
+    #experiment_mix_env(config_filename="ML1-pick-place-v2.yaml", mode="train")

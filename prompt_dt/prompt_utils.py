@@ -276,21 +276,46 @@ def get_prompt_batch(trajectories_list, prompt_trajectories_list, info, variant,
 def get_goal_prompt(info):
     device = info['device']
     goal = info['goal']
+    # (goal_dim, ) --> (1, goal_dim)
     goal = np.expand_dims(goal, axis=0)
-    goal_dim = goal.shape[0]
 
-    mask = np.ones((1, goal_dim))
+    mask = np.ones((1, 1))
 
     # numpy to torch tensor
     goal = torch.from_numpy(goal).to(dtype=torch.float32, device=device) # [1, goal_dim]
-    mask = torch.from_numpy(mask).to(device=device) # [1, goal_dim]
+    mask = torch.from_numpy(mask).to(device=device) # [1, 1]
 
     return goal, mask
+
+# get one goal state prompt
+def get_goal_state_prompt(prompt_trajectories, info):
+    device = info['device']
+    state_dim = info['state_dim']
+
+    # random sample one prompt trajectories from the whole trajectory pool (p_sample=1)
+    batch_inds = np.random.choice(
+        np.arange(len(prompt_trajectories)),
+        size=1,
+        replace=True,
+    )
+    trajectory_index = batch_inds[0]
+    traj = prompt_trajectories[trajectory_index]
+
+    # get last state of the chosen trajectory
+    # (state_dim, ) --> (1, state_dim)
+    goal_state = traj['observations'][-1].reshape(1, state_dim)
+    mask = np.ones((1, 1))
+
+    # numpy to torch tensor
+    goal_state = torch.from_numpy(goal_state).to(dtype=torch.float32, device=device) # [1, state_dim]
+    mask = torch.from_numpy(mask).to(device=device) # [1, 1]
+
+    return goal_state, mask
 
 # get a batch of trajectories and goal prompts
 # Note that for each environment, collect a batch of input trajectories 
 # therefore, total batch size = n_train_env * per_env_batch_size
-def get_goal_prompt_batch(trajectories_list, info, variant, train_env_name_list):
+def get_goal_prompt_batch(trajectories_list, prompt_trajectories_list, info, variant, train_env_name_list):
     per_env_batch_size = variant['per_env_batch_size']
 
     # Note that batch_size=per_env_batch_size
@@ -299,7 +324,17 @@ def get_goal_prompt_batch(trajectories_list, info, variant, train_env_name_list)
         s_list, a_list, r_list, d_list, rtg_list, timesteps_list, mask_list = [], [], [], [], [], [], []
         for env_id, env_name in enumerate(train_env_name_list):
             # get a single goal prompt
-            goal, mask = get_goal_prompt(info[env_name])
+            if variant["prompt_method"] == "goal_prompt":
+                goal, mask = get_goal_prompt(info[env_name])
+            elif variant["prompt_method"] == "goal_state_prompt": 
+                if prompt_trajectories_list:   
+                    goal, mask = get_goal_state_prompt(prompt_trajectories_list[env_id], info[env_name])
+                else:
+                    goal, mask = get_goal_state_prompt(trajectories_list[env_id], info[env_name])
+            else:
+                print("Error: Unknown goal prompt method")
+                exit()
+            
             # get a batch of goal prompts
             p_goal = goal.repeat(batch_size, 1)
             p_mask = mask.repeat(batch_size, 1)

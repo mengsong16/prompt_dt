@@ -154,7 +154,11 @@ class PromptSequenceTrainer:
                 elif variant['prompt_method'] == "goal_prompt":
                     # get a single prompt 
                     current_prompt = get_prompt_fn(info[env_name])
-
+                elif variant["prompt_method"] == "goal_state_prompt": 
+                    current_prompt = get_prompt_fn(prompt_trajectories_list[env_id], info[env_name])
+                else:
+                    print("Error: Unknown prompt method")
+                    exit()
             else:
                 current_prompt = None
             

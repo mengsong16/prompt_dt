@@ -29,14 +29,14 @@ no_rtg: false # input includes rtg or not
 
 # prompt
 no_prompt: false
-prompt_method: "traj_prompt" #["traj_prompt", "goal_prompt"]
+prompt_method: "traj_prompt" #["traj_prompt", "goal_prompt", "goal_state_prompt"]
 traj_prompt:
   prompt_episode: 1
   prompt_length: 1 #5 #2
   # if true randomly select prompt trajectory
   # otherwise prefer prompt trajectory with higher return
   stochastic_prompt: true
-  crop_method: "last_step" #['last_few', 'random_crop', "last_step"]
+  crop_method: "last_few" #['last_few', 'random_crop', "last_step"]
 
 
 # training

@@ -72,6 +72,8 @@ class PromptDecisionTransformer(nn.Module):
                 self.prompt_embed_action = torch.nn.Linear(self.act_dim, hidden_size)
             elif self.prompt_method == "goal_prompt":
                 self.goal_prompt_embed = torch.nn.Linear(self.goal_dim, hidden_size)
+            elif self.prompt_method == "goal_state_prompt":
+                self.goal_state_prompt_embed = torch.nn.Linear(self.state_dim, hidden_size)
             else:
                 print("Error: unknown prompt method")
                 exit()
@@ -145,12 +147,19 @@ class PromptDecisionTransformer(nn.Module):
                     (prompt_attention_mask, prompt_attention_mask, prompt_attention_mask), dim=1
                 ).permute(0, 2, 1).reshape(prompt_states.shape[0], 3 * prompt_seq_length)
             elif self.prompt_method == "goal_prompt":
-                goal_prompts, prompt_attention_mask = prompt #[32, 1], [32, 1]
+                goal_prompts, prompt_attention_mask = prompt #[32, goal_dim], [32, 1]
                 prompt_inputs = self.goal_prompt_embed(goal_prompts) # [32, 128]
                 prompt_inputs = torch.unsqueeze(prompt_inputs, dim=1) # [32, 128] --> [32, 1, 128]
                 prompt_stacked_inputs = torch.cat((prompt_inputs, prompt_inputs, prompt_inputs), dim=1) # [32, 1, 128] --> [32, 3, 128]
                 prompt_stacked_attention_mask = torch.cat((prompt_attention_mask, prompt_attention_mask, prompt_attention_mask), dim=1) # [32, 1] --> [32, 3]
                 
+            elif self.prompt_method == "goal_state_prompt":
+                goal_state_prompts, prompt_attention_mask = prompt #[32, state_dim], [32, 1]
+                prompt_inputs = self.goal_state_prompt_embed(goal_state_prompts) # [32, 128]
+                prompt_inputs = torch.unsqueeze(prompt_inputs, dim=1) # [32, 128] --> [32, 1, 128]
+                prompt_stacked_inputs = torch.cat((prompt_inputs, prompt_inputs, prompt_inputs), dim=1) # [32, 1, 128] --> [32, 3, 128]
+                prompt_stacked_attention_mask = torch.cat((prompt_attention_mask, prompt_attention_mask, prompt_attention_mask), dim=1) # [32, 1] --> [32, 3]
+
             else:
                 print("Error: undefined prompt method")
                 exit()
