@@ -221,8 +221,10 @@ def experiment_mix_env(config_filename, mode):
             suffix += "-pred_reward"
         
         if variant['prompt_method'] == "traj_prompt":
-            if variant['traj_prompt']['use_last_few'] == False:
+            if variant['traj_prompt']['crop_method'] == 'random_crop':
                 suffix += "-random_crop"
+            elif variant['traj_prompt']['crop_method'] == 'last_step':
+                suffix += "-last_step"
         
         suffix += variant['suffix']
 

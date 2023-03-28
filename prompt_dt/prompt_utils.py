@@ -178,12 +178,19 @@ def get_prompt(prompt_trajectories, info, variant):
 
             # si is the beginning of the last segment of length max_len in the trajectory before the last state
             # the cropped segment must have length max_len
-            if variant['traj_prompt']['use_last_few']:
+            if variant['traj_prompt']['crop_method'] == 'last_few':
                 si = max(0, traj['rewards'].shape[0] - max_len -1) # select the last part of the traj with length max_len
             # randomly pick a segment of length max_len from current trajectory starting from state si
             # the cropped segment has length <= max_len
-            else:
+            elif variant['traj_prompt']['crop_method'] == 'random_crop':
+                # [a,b] both included
                 si = random.randint(0, traj['rewards'].shape[0] - 1)
+            elif variant['traj_prompt']['crop_method'] == 'last_step':
+                assert max_len == 1, "Crop method last step assumes the prompt length to be 1"
+                si = traj['rewards'].shape[0] - 1
+            else:
+                print("Error: unknown crop method")
+                exit()
 
             # append the segment
             append_new_segment(traj, si, max_len, max_ep_len, 
