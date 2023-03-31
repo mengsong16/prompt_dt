@@ -5,8 +5,7 @@ import numpy as np
 import torch
 import time
 from wandb import env
-from prompt_dt.prompt_utils import flatten_prompt
-from prompt_dt.prompt_evaluate_episodes import pack_eval_results_one_env_target, compute_mean_std_one_base_env_multi_targets, compute_episode_length_normalized_score
+from prompt_dt.prompt_evaluate_episodes import pack_eval_results_one_env_target, compute_mean_std_one_base_env_multi_targets, compute_episode_length_normalized_score, get_prompt_eval
 import copy
 import os
 
@@ -143,24 +142,10 @@ class PromptSequenceTrainer:
             # set up an eval_fn and its parameters for each target return of current env
             self.eval_fns = [eval_episodes(tar, info[env_name], variant, env_list[env_id], env_name) for tar in info[env_name]['env_targets']]
             
-            if not no_prompt:
-                if variant['prompt_method'] == "traj_prompt":
-                    # set up get one prompt fn and its parameters
-                    current_get_prompt_fn = get_prompt_fn(prompt_trajectories_list[env_id], info[env_name], variant)
-                    # get a single prompt since we evalute one episode at one time: [number_segments, segment_length, state_dim]
-                    # concatenate its prompt segments info: [1, prompt_length, state_dim]
-                    # Note that rtg's sequence length has been decreased 1 to the correct length in flatten_prompt
-                    current_prompt = flatten_prompt(current_get_prompt_fn(), batch_size=1)
-                elif variant['prompt_method'] == "goal_prompt":
-                    # get a single prompt 
-                    current_prompt = get_prompt_fn(info[env_name])
-                elif variant["prompt_method"] == "goal_state_prompt": 
-                    current_prompt = get_prompt_fn(prompt_trajectories_list[env_id], info[env_name])
-                else:
-                    print("Error: Unknown prompt method")
-                    exit()
-            else:
-                current_prompt = None
+            # sample a prompt and use it to evaluate n episodes
+            current_prompt = get_prompt_eval(env_id, env_name,
+                no_prompt, get_prompt_fn,
+                variant, prompt_trajectories_list, info)
             
             # evaluate an env with a given target rtg in current environment for num_eval_episodes
             for eval_fn in self.eval_fns:

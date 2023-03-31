@@ -2,6 +2,7 @@
 **/wandb/
 **/runs/
 **/evaluation/
+**/demo/
 **/log/
 **/envs/
 **/task_config/

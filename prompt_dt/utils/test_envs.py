@@ -73,12 +73,12 @@ def create_env_list(env_name_list, config_save_path):
         env_list.append(env)
     return env_list
 
-def test_envs():
+def test_envs(render):
     #base_env = 'cheetah_vel' # ['cheetah_dir', 'cheetah_vel', 'ant_dir', 'ML1-pick-place-v2']
     #train_env_name_list, test_env_name_list = load_train_test_env_name_list(base_env)
 
     # 'ant_dir-0', 'cheetah_vel-0', 'cheetah_dir-0', 'ML1-pick-place-v2-0'
-    env_name = 'cheetah_vel-0'
+    env_name = 'ML1-pick-place-v2-0'
     env = create_env(env_name=env_name, config_save_path=task_config_path)
     if "ML1" in env_name:
         max_ep_len = 500
@@ -90,7 +90,8 @@ def test_envs():
     # set print precision
     np.set_printoptions(precision=2)
 
-    for episode in range(10):
+
+    for episode in range(100):
         print("--------------------------------------")
         print('Episode: {}'.format(episode))
         obs = env.reset()
@@ -100,6 +101,10 @@ def test_envs():
             action = env.action_space.sample()
             obs, reward, done, info = env.step(action)
             #print('action: {}   state: {}  reward: {}'.format(action, obs, reward))
+
+            if render:
+                env.render()
+
             if done: 
                 break
                     
@@ -111,6 +116,7 @@ def test_envs():
     print("Goal: ", get_env_goal(env_name, env))
     print('-----------------------------')
 
+
 if __name__ == '__main__':
-    test_envs()
+    test_envs(render=True)
 

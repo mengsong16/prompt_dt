@@ -6,18 +6,22 @@ import torch
 import time
 import os
 import pickle 
+from prompt_dt.prompt_utils import flatten_prompt
+#from gym.wrappers.monitoring.video_recorder import VideoRecorder
 
 """ evaluation """
 # evaluate policy with a given target rtg for n episodes in a test environment
-def eval_episodes(target_rew, info, variant, env, env_name):
+def eval_episodes(target_rew, info, variant, env, env_name, render=False):
     max_ep_len, state_mean, state_std, scale = info['max_ep_len'], info['state_mean'], info['state_std'], info['scale']
     state_dim, act_dim, device = info['state_dim'], info['act_dim'], info['device']
     num_eval_episodes = variant['num_eval_episodes']
     reward_mode = variant.get('reward_mode', 'normal')
 
+
     def fn(model, prompt=None):
         returns = []
         episode_lengths = []
+        # evaluate for n episodes with the same prompt
         for _ in range(num_eval_episodes):
             with torch.no_grad():
                 # evaluate for one episode
@@ -37,14 +41,16 @@ def eval_episodes(target_rew, info, variant, env, env_name):
                     prompt=prompt,
                     no_r=variant['no_r'],
                     no_rtg=variant['no_rtg'],
-                    no_state_normalize=variant['no_state_normalize']                
+                    no_state_normalize=variant['no_state_normalize'],
+                    render=render              
                     )
             returns.append(ret)
             episode_lengths.append(infos['episode_length'])
-        
+
+
         return {
-            f'{env_name}_target_{target_rew}_return_mean': np.mean(returns),
-            f'{env_name}_target_{target_rew}_return_std': np.std(returns),
+            f'{env_name}_target_{int(target_rew)}_return_mean': np.mean(returns),
+            f'{env_name}_target_{int(target_rew)}_return_std': np.std(returns),
             }, returns, episode_lengths, target_rew
     return fn
 
@@ -66,9 +72,10 @@ def prompt_evaluate_episode_rtg(
         prompt, # a single prompt
         no_r,
         no_rtg,
-        no_state_normalize
+        no_state_normalize,
+        render
     ):
-
+    
     model.eval()
     model.to(device=device)
 
@@ -121,6 +128,9 @@ def prompt_evaluate_episode_rtg(
         action = action.detach().cpu().numpy()
 
         state, reward, done, infos = env.step(action)
+
+        if render:
+            env.render()
 
         cur_state = torch.from_numpy(state).to(device=device).reshape(1, state_dim)
         # append new state to the rightmost location of the state history
@@ -271,3 +281,28 @@ def save_eval_results(eval_results, file_name, folder):
         pickle.dump(eval_results, f)
 
     print('======> Evaluation results saved to ', save_path)
+
+# compute prompt in a given environment during evaluation
+def get_prompt_eval(env_id, env_name,
+                no_prompt, get_prompt_fn,
+                variant, prompt_trajectories_list, info):
+    if not no_prompt:
+        if variant['prompt_method'] == "traj_prompt":
+            # set up get one prompt fn and its parameters
+            current_get_prompt_fn = get_prompt_fn(prompt_trajectories_list[env_id], info[env_name], variant)
+            # get a single prompt since we evalute one episode at one time: [number_segments, segment_length, state_dim]
+            # concatenate its prompt segments info: [1, prompt_length, state_dim]
+            # Note that rtg's sequence length has been decreased 1 to the correct length in flatten_prompt
+            current_prompt = flatten_prompt(current_get_prompt_fn(), batch_size=1)
+        elif variant['prompt_method'] == "goal_prompt":
+            # get a single prompt 
+            current_prompt = get_prompt_fn(info[env_name])
+        elif variant["prompt_method"] == "goal_state_prompt": 
+            current_prompt = get_prompt_fn(prompt_trajectories_list[env_id], info[env_name])
+        else:
+            print("Error: Unknown prompt method")
+            exit()
+    else:
+        current_prompt = None
+    
+    return current_prompt

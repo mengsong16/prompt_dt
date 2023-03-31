@@ -2,7 +2,6 @@ import numpy as np
 import gym
 import json, pickle, random, os, torch
 from collections import namedtuple
-from prompt_dt.prompt_evaluate_episodes import prompt_evaluate_episode_rtg
 from prompt_dt.utils.path import *
 
 # for mujoco tasks
@@ -150,7 +149,7 @@ def flatten_prompt(prompt, batch_size):
     p_mask = p_mask.reshape((batch_size, -1)) 
     return p_s, p_a, p_r, p_d, p_rtg, p_timesteps, p_mask
 
-# get one trajectory prompt
+# get one trajectory prompt or many
 def get_prompt(prompt_trajectories, info, variant):
     num_trajectories, p_sample, sorted_inds = info['num_trajectories'], info['p_sample'], info['sorted_inds']
     max_ep_len, state_mean, state_std, scale = info['max_ep_len'], info['state_mean'], info['state_std'], info['scale']

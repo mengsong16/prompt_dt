@@ -64,8 +64,8 @@ max_return_as_target_rtg: true
 compare_normalized_returns: true
 
 # evaluation
-load_path: "cheetah_dir-2-env-expert-no_prompt-s1-20230314-220409" # where to load the model
-checkpoint_name: "iter-0.pth"
+load_path: "ML1-pick-place-v2-45-env-expert-goal_prompt-s1-20230328-123529" # where to load the model
+checkpoint_name: "iter-4999.pth"
 
 # seed
 seed: 1
@@ -74,4 +74,4 @@ seed: 1
 device: 'cuda:1'
 
 # log
-log_to_wandb: true
+log_to_wandb: false

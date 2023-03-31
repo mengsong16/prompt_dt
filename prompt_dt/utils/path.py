@@ -16,7 +16,7 @@ runs_path = os.path.join(root_path, 'runs')
 config_path = os.path.join(root_path, "configs")	
 evaluation_path = os.path.join(root_path, "evaluation")
 env_path = os.path.join(root_path, "envs")
-
+demo_path = os.path.join(root_path, 'demo')
 
 if __name__ == "__main__": 
     print(cur_path)

@@ -100,7 +100,7 @@ class PromptDecisionTransformer(nn.Module):
 
         # this makes the sequence look like (R_1, s_1, a_1, R_2, s_2, a_2, ...)
         # which works nice in an autoregressive sense since states predict actions
-        # before permutation: [batch_size, 3, seq_length, hidden_size] (dim 1 is a new dim)
+        # after stacking, before permutation: [batch_size, 3, seq_length, hidden_size] (dim 1 is a new dim)
         # after permutation: [batch_size, seq_length, 3, hidden_size]
         # after reshape: sequence length becomes [batch_size, 3*seq_length, hidden_size]
         stacked_inputs = torch.stack(

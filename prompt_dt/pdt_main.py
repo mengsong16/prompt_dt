@@ -22,7 +22,7 @@ from prompt_dt.prompt_utils import get_total_data_mean_std, load_data_prompt, pr
 from prompt_dt.prompt_utils import load_train_test_env_name_list, get_total_num_trajectory
 from prompt_dt.utils.path import *
 from prompt_dt.utils.other import parse_config, seed_other
-from prompt_dt.prompt_evaluate_episodes import eval_episodes, save_eval_results
+from prompt_dt.prompt_evaluate_episodes import eval_episodes, save_eval_results, get_prompt_eval
 
 from collections import namedtuple
 import json, pickle, os
@@ -51,7 +51,6 @@ def experiment_mix_env(config_filename, mode):
     # seed
     seed = variant['seed']
     seed_other(seed) # seed everything except environments
-
 
     ######
     # construct train and test environments
@@ -180,7 +179,7 @@ def experiment_mix_env(config_filename, mode):
         lambda steps: min((steps + 1) / warmup_steps, 1)
     )
 
-    # create trainer
+    # setup prompt function and prompt_batch function
     if variant['prompt_method'] == "traj_prompt":
         get_prompt_batch_fn = get_prompt_batch(train_trajectories_list, train_prompt_trajectories_list, train_info, variant, train_env_name_list)
         get_prompt_fn = get_prompt
@@ -194,7 +193,7 @@ def experiment_mix_env(config_filename, mode):
         print("Error: undefined prompt method")
         exit()
     
-
+    # create trainer
     trainer = PromptSequenceTrainer(
         model=model,
         optimizer=optimizer,
@@ -206,11 +205,13 @@ def experiment_mix_env(config_filename, mode):
 
     print("======> Trainer created")
 
+    
     if mode == 'train':
         ######
         # start training
         ######
 
+        # set up wandb names
         # set experiment name
         if variant['no_prompt']:
             prompt_method = 'no_prompt'
@@ -249,7 +250,7 @@ def experiment_mix_env(config_filename, mode):
         print("======> Config saved to ", save_config_file_path)
         
         
-        # wandb initialize
+        # wandb initialization
         if log_to_wandb:
             wandb.init(
                 name=experiment_name,
@@ -316,7 +317,7 @@ def experiment_mix_env(config_filename, mode):
                 wandb.log(outputs)
 
 
-    else:
+    elif mode == 'eval':
         ####
         # start evaluating
         ####
@@ -332,6 +333,7 @@ def experiment_mix_env(config_filename, mode):
         checkpoint_name = checkpoint_name.split('.')[0] 
         eval_iter_num = int(checkpoint_name.split('-')[-1])
 
+        # set up evaluation results save path
         eval_results_path = os.path.join(evaluation_path, load_path)
 
         # evaluate in test environments
@@ -359,10 +361,66 @@ def experiment_mix_env(config_filename, mode):
                         file_name=checkpoint_name+'.pkl', # iteration index starts from 0
                         folder=os.path.join(eval_results_path, "train"))
 
+    elif mode == 'demo':
+        ####
+        # start demo
+        ####
 
+        # load model
+        load_path = variant['load_path']
+        checkpoint_name = variant['checkpoint_name']
+        saved_model_path = os.path.join(runs_path, load_path, checkpoint_name)
+        model.load_state_dict(torch.load(saved_model_path))
+        print('======> Model loaded from: ', saved_model_path)
+
+        # suppress scientific notation
+        np.set_printoptions(suppress=True)
+        # set print precision
+        np.set_printoptions(precision=2)
+
+        # get test environment info
+        env_id = 0
+        env_name = test_env_name_list[env_id]
+        env_target_return = test_info[env_name]['env_targets'][0]
+
+        # set up evaluation function
+        eval_fn = eval_episodes(env_target_return, 
+                                test_info[env_name], 
+                                variant, test_env_list[env_id], 
+                                env_name, render=True)
+
+        # set up get prompt function
+        if variant['prompt_method'] == "traj_prompt":
+            get_prompt_fn = get_prompt
+        elif variant['prompt_method'] == "goal_prompt":
+            get_prompt_fn = get_goal_prompt
+        elif variant['prompt_method'] == "goal_state_prompt":
+            get_prompt_fn = get_goal_state_prompt
+        else:
+            print("Error: undefined prompt method")
+            exit()
+        
+        # get one prompt
+        prompt = get_prompt_eval(env_id, env_name,
+                        variant["no_prompt"], get_prompt_fn,
+                        variant, test_prompt_trajectories_list, test_info)
+            
+        # evaluate trained model in the test environment for n episodes
+        model.eval()
+        output_logs, returns, episode_lengths, target_return = eval_fn(model, prompt=prompt)
+               
+        print("="*80)
+        print(output_logs)
+        print("="*80)
+        
+
+    else:
+        print("Error: undefined mode")
+        exit()
         
 if __name__ == '__main__':
-    #experiment_mix_env(config_filename="cheetah_dir.yaml", mode="train") # mode: ['train', 'eval']
-    experiment_mix_env(config_filename="cheetah_vel.yaml", mode="train")
+    #experiment_mix_env(config_filename="cheetah_dir.yaml", mode="train") # mode: ['train', 'eval', 'demo']
+    #experiment_mix_env(config_filename="cheetah_vel.yaml", mode="train")
     #experiment_mix_env(config_filename="ant_dir.yaml", mode="train")
     #experiment_mix_env(config_filename="ML1-pick-place-v2.yaml", mode="train")
+    experiment_mix_env(config_filename="ML1-pick-place-v2.yaml", mode="demo")
