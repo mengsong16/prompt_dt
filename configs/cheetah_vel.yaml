@@ -29,7 +29,7 @@ no_rtg: false # input includes rtg or not
 
 # prompt
 no_prompt: false
-prompt_method: "goal_state_prompt" #["traj_prompt", "goal_prompt", "goal_state_prompt"]
+prompt_method: "goal_learned_prompt" #["traj_prompt", "goal_prompt", "goal_state_prompt", "goal_learned_prompt"]
 traj_prompt:
   prompt_episode: 1
   prompt_length: 1 #5 #2
@@ -37,6 +37,8 @@ traj_prompt:
   # otherwise prefer prompt trajectory with higher return
   stochastic_prompt: true
   crop_method: "last_few" #['last_few', 'random_crop', "last_step"]
+learned_prompt: 
+  n_tokens: 1
 
 # training
 per_env_batch_size: 16 # number of trajectory segments per batch in each training environment

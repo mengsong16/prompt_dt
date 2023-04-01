@@ -78,7 +78,7 @@ def test_envs(render):
     #train_env_name_list, test_env_name_list = load_train_test_env_name_list(base_env)
 
     # 'ant_dir-0', 'cheetah_vel-0', 'cheetah_dir-0', 'ML1-pick-place-v2-0'
-    env_name = 'ML1-pick-place-v2-0'
+    env_name = 'cheetah_vel-0'
     env = create_env(env_name=env_name, config_save_path=task_config_path)
     if "ML1" in env_name:
         max_ep_len = 500
@@ -101,11 +101,14 @@ def test_envs(render):
             action = env.action_space.sample()
             obs, reward, done, info = env.step(action)
             #print('action: {}   state: {}  reward: {}'.format(action, obs, reward))
+            if i == 0:
+                print("state s1: %s"%obs)
 
             if render:
                 env.render()
 
             if done: 
+                print("last state: %s"%(obs))
                 break
                     
         print('Episode {} finished after {} timesteps.'.format(episode,i+1))
@@ -118,5 +121,5 @@ def test_envs(render):
 
 
 if __name__ == '__main__':
-    test_envs(render=True)
+    test_envs(render=False)
 

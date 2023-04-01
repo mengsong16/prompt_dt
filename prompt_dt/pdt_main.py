@@ -162,6 +162,7 @@ def experiment_mix_env(config_filename, mode):
         attn_pdrop=variant['dropout'],
         no_prompt=variant['no_prompt'],
         prompt_method=variant['prompt_method'],
+        n_tokens = int(variant['learned_prompt']['n_tokens']),
     )
     model = model.to(device=device)
 
@@ -183,7 +184,7 @@ def experiment_mix_env(config_filename, mode):
     if variant['prompt_method'] == "traj_prompt":
         get_prompt_batch_fn = get_prompt_batch(train_trajectories_list, train_prompt_trajectories_list, train_info, variant, train_env_name_list)
         get_prompt_fn = get_prompt
-    elif variant['prompt_method'] == "goal_prompt":
+    elif variant['prompt_method'] == "goal_prompt" or variant['prompt_method'] == "goal_learned_prompt":
         get_prompt_batch_fn = get_goal_prompt_batch(train_trajectories_list, train_prompt_trajectories_list, train_info, variant, train_env_name_list)
         get_prompt_fn = get_goal_prompt
     elif variant['prompt_method'] == "goal_state_prompt":
@@ -392,7 +393,7 @@ def experiment_mix_env(config_filename, mode):
         # set up get prompt function
         if variant['prompt_method'] == "traj_prompt":
             get_prompt_fn = get_prompt
-        elif variant['prompt_method'] == "goal_prompt":
+        elif variant['prompt_method'] == "goal_prompt" or variant['prompt_method'] == "goal_learned_prompt":
             get_prompt_fn = get_goal_prompt
         elif variant['prompt_method'] == "goal_state_prompt":
             get_prompt_fn = get_goal_state_prompt
@@ -420,7 +421,8 @@ def experiment_mix_env(config_filename, mode):
         
 if __name__ == '__main__':
     #experiment_mix_env(config_filename="cheetah_dir.yaml", mode="train") # mode: ['train', 'eval', 'demo']
-    #experiment_mix_env(config_filename="cheetah_vel.yaml", mode="train")
+    experiment_mix_env(config_filename="cheetah_vel.yaml", mode="train")
     #experiment_mix_env(config_filename="ant_dir.yaml", mode="train")
     #experiment_mix_env(config_filename="ML1-pick-place-v2.yaml", mode="train")
-    experiment_mix_env(config_filename="ML1-pick-place-v2.yaml", mode="demo")
+    
+    #experiment_mix_env(config_filename="ML1-pick-place-v2.yaml", mode="demo")

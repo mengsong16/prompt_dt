@@ -323,7 +323,7 @@ def get_goal_prompt_batch(trajectories_list, prompt_trajectories_list, info, var
         s_list, a_list, r_list, d_list, rtg_list, timesteps_list, mask_list = [], [], [], [], [], [], []
         for env_id, env_name in enumerate(train_env_name_list):
             # get a single goal prompt
-            if variant["prompt_method"] == "goal_prompt":
+            if variant["prompt_method"] == "goal_prompt" or variant["prompt_method"] == "goal_learned_prompt":
                 goal, mask = get_goal_prompt(info[env_name])
             elif variant["prompt_method"] == "goal_state_prompt": 
                 if prompt_trajectories_list:   
