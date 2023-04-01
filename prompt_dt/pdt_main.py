@@ -379,17 +379,6 @@ def experiment_mix_env(config_filename, mode):
         # set print precision
         np.set_printoptions(precision=2)
 
-        # get test environment info
-        env_id = 0
-        env_name = test_env_name_list[env_id]
-        env_target_return = test_info[env_name]['env_targets'][0]
-
-        # set up evaluation function
-        eval_fn = eval_episodes(env_target_return, 
-                                test_info[env_name], 
-                                variant, test_env_list[env_id], 
-                                env_name, render=True)
-
         # set up get prompt function
         if variant['prompt_method'] == "traj_prompt":
             get_prompt_fn = get_prompt
@@ -400,19 +389,34 @@ def experiment_mix_env(config_filename, mode):
         else:
             print("Error: undefined prompt method")
             exit()
-        
-        # get one prompt
-        prompt = get_prompt_eval(env_id, env_name,
-                        variant["no_prompt"], get_prompt_fn,
-                        variant, test_prompt_trajectories_list, test_info)
+
+        for env_id in range(len(test_env_name_list)):
+            # get current test environment info
+            env_name = test_env_name_list[env_id]
+            env_target_return = test_info[env_name]['env_targets'][0]
+
+            # set up evaluation function
+            eval_fn = eval_episodes(env_target_return, 
+                                    test_info[env_name], 
+                                    variant, test_env_list[env_id], 
+                                    env_name, render=True)
+
             
-        # evaluate trained model in the test environment for n episodes
-        model.eval()
-        output_logs, returns, episode_lengths, target_return = eval_fn(model, prompt=prompt)
-               
-        print("="*80)
-        print(output_logs)
-        print("="*80)
+            
+            # get one prompt
+            prompt = get_prompt_eval(env_id, env_name,
+                            variant["no_prompt"], get_prompt_fn,
+                            variant, test_prompt_trajectories_list, test_info)
+                
+            # evaluate trained model in the test environment for n episodes
+            model.eval()
+            output_logs, returns, episode_lengths, target_return = eval_fn(model, prompt=prompt)
+                
+            print("="*80)
+            print("Env id: ", env_id)
+            print("Env name: ", env_name)
+            print(output_logs)
+            print("="*80)
         
 
     else:
@@ -421,8 +425,8 @@ def experiment_mix_env(config_filename, mode):
         
 if __name__ == '__main__':
     #experiment_mix_env(config_filename="cheetah_dir.yaml", mode="train") # mode: ['train', 'eval', 'demo']
-    experiment_mix_env(config_filename="cheetah_vel.yaml", mode="train")
+    #experiment_mix_env(config_filename="cheetah_vel.yaml", mode="train")
     #experiment_mix_env(config_filename="ant_dir.yaml", mode="train")
     #experiment_mix_env(config_filename="ML1-pick-place-v2.yaml", mode="train")
     
-    #experiment_mix_env(config_filename="ML1-pick-place-v2.yaml", mode="demo")
+    experiment_mix_env(config_filename="ML1-pick-place-v2.yaml", mode="demo")
