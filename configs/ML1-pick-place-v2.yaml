@@ -29,7 +29,7 @@ no_rtg: false # input includes rtg or not
 
 # prompt
 no_prompt: false
-prompt_method: "goal_learned_prompt" ##["traj_prompt", "goal_prompt", "goal_state_prompt", "goal_learned_prompt"]
+prompt_method: "traj_prompt" ##["traj_prompt", "goal_prompt", "goal_state_prompt", "goal_learned_prompt"]
 traj_prompt:
   prompt_episode: 1
   prompt_length: 1 #5 #2
@@ -65,7 +65,10 @@ max_return_as_target_rtg: true
 compare_normalized_returns: true
 
 # evaluation
-load_path: "ML1-pick-place-v2-45-env-expert-goal_learned_prompt-s1-20230401-024351" # where to load the model
+# where to load the model
+#load_path: "ML1-pick-place-v2-45-env-expert-goal_learned_prompt-s1-20230401-024351" 
+#load_path: "ML1-pick-place-v2-45-env-expert-goal_state_prompt-s1-20230328-173439" 
+load_path: ML1-pick-place-v2-45-env-expert-traj_prompt-s1-20230324-151130
 checkpoint_name: "iter-4999.pth"
 
 # seed
