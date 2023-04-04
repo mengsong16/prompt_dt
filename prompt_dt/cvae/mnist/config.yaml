@@ -1,0 +1,19 @@
+
+# seed
+seed: 1
+
+# device
+device: 'cuda:1'
+
+# model
+hidden_size: 512
+latent_size: 2
+
+# train
+epochs: 10
+batch_size: 64
+learning_rate: 0.001
+
+# log
+print_every: 100
+fig_root: 'figs'
