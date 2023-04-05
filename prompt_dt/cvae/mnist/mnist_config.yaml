@@ -1,0 +1,29 @@
+# algorithm name
+algorithm_name: "cvae"
+
+# seed
+seed: 1
+
+# device
+device: 'cuda:1'
+
+# model
+hidden_dim: 512
+latent_dim: 50
+
+# distribution
+# ["standard_gaussian", "gaussian_identity_covariance"]
+prior_distribution: "standard_gaussian" 
+
+
+# train
+num_epochs: 5 #50
+batch_size: 256
+learning_rate: 0.001
+# beta
+anneal_beta: false
+anneal_num_epochs: 20
+beta: 1.0
+
+# evaluation
+test_frequency: 5 # test every n epoch

@@ -17,6 +17,16 @@ config_path = os.path.join(root_path, "configs")
 evaluation_path = os.path.join(root_path, "evaluation")
 env_path = os.path.join(root_path, "envs")
 demo_path = os.path.join(root_path, 'demo')
+figure_path = os.path.join(root_path, "figures")
+
+mnist_figure_path = os.path.join(figure_path, "mnist")
+mnist_runs_path = os.path.join(runs_path, "mnist")
+
+# code path
+cvae_path = os.path.join(root_path, "prompt_dt", "cvae")
+mnist_path = os.path.join(cvae_path, "mnist")
+
+
 
 if __name__ == "__main__": 
     print(cur_path)
