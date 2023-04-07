@@ -253,20 +253,3 @@ class StochasticDecoder(nn.Module):
             print("Error: Undefined decoder distribution")
             exit()
 
-# c --> x
-class DeterministicDecoder(nn.Module):
-    def __init__(self, condition_dim, data_dim, hidden_dim):
-        super().__init__()
-
-        self.MLP = nn.Sequential(
-            nn.Linear(condition_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, data_dim)
-        )
-
-    def forward(self, c):
-        x = self.MLP(c)
-
-        return x

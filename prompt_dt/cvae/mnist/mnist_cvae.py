@@ -3,27 +3,19 @@ import torch.nn as nn
 import pyro
 import pyro.distributions as dist
 from prompt_dt.cvae.cvae import CVAE
-
-# index to one hot vector
-def idx2onehot(idx, n):
-    assert torch.max(idx).item() < n
-
-    if idx.dim() == 1:
-        idx = idx.unsqueeze(1)
-    onehot = torch.zeros(idx.size(0), n).to(idx.device)
-    onehot.scatter_(1, idx, 1)
-    
-    return onehot
+from prompt_dt.cvae.mnist.mnist_utils import idx2onehot
 
 
-class MnistCVAE(CVAE):
+
+class ImageCVAE(CVAE):
     def __init__(self, latent_dim, hidden_dim, num_labels, 
+                 image_height, image_width,
                  prior_distribution):
         
         self.num_labels = num_labels
         self.condition_dim = num_labels
-        self.image_height = 28
-        self.image_width = 28
+        self.image_height = image_height
+        self.image_width = image_width
         self.data_dim = self.image_height * self.image_width
         
         super().__init__(self.data_dim, latent_dim, self.condition_dim, 
@@ -67,20 +59,6 @@ class MnistCVAE(CVAE):
 
         return super().embed_x(x, c)
     
-    # def decode_z(self, z, label_idx, deterministic):
-    #     c = idx2onehot(label_idx, n=self.num_labels)
-
-    #     generated_x = super().decode_z(z, c, deterministic)
-    
-    #     # reshape 1D vectors to 2D images
-    #     generated_x = generated_x.reshape(-1, self.image_height, self.image_width)
-
-    #     return generated_x
-
-    # def sample_z(self, label_idx):
-    #     c = idx2onehot(label_idx, n=self.num_labels)
-
-    #     return super().sample_z(c)
 
     def generate_x(self, label_idx, deterministic):
         c = idx2onehot(label_idx, n=self.num_labels)

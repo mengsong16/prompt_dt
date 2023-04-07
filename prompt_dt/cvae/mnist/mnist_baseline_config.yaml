@@ -1,0 +1,19 @@
+# algorithm name
+algorithm_name: "baseline"
+
+# seed
+seed: 1
+
+# device
+device: 'cuda:1'
+
+# model
+hidden_dim: 512
+
+# train
+num_epochs: 40
+batch_size: 256
+learning_rate: 0.001
+
+# evaluation
+test_frequency: 5 # test every n epoch

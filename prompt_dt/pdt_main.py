@@ -429,6 +429,6 @@ if __name__ == '__main__':
     #experiment_mix_env(config_filename="ant_dir.yaml", mode="train")
     #experiment_mix_env(config_filename="ML1-pick-place-v2.yaml", mode="train")
     
-    #experiment_mix_env(config_filename="ML1-pick-place-v2.yaml", mode="demo")
+    experiment_mix_env(config_filename="ML1-pick-place-v2.yaml", mode="demo")
     #experiment_mix_env(config_filename="ant_dir.yaml", mode="demo")
-    experiment_mix_env(config_filename="cheetah_vel.yaml", mode="demo")
+    #experiment_mix_env(config_filename="cheetah_vel.yaml", mode="demo")

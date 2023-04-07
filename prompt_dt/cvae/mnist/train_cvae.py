@@ -18,7 +18,7 @@ from sklearn.manifold import TSNE
 import numpy as np
 import scipy as sp
 
-from prompt_dt.cvae.mnist.mnist_cvae import MnistCVAE
+from prompt_dt.cvae.mnist.mnist_cvae import ImageCVAE
 from prompt_dt.utils.other import seed_other
 from prompt_dt.utils.path import *
 from prompt_dt.utils.other import parse_config
@@ -31,84 +31,14 @@ import pyro.poutine as poutine
 
 from tqdm import tqdm
 
-def get_train_data_loader(variant):
-    dataset = MNIST(
-        root=data_path, train=True, transform=transforms.ToTensor(),
-        download=True)
-    
-    data_loader = DataLoader(
-        dataset=dataset, batch_size=variant['batch_size'], shuffle=True)
-
-    return data_loader
-
-def get_test_data_loader(variant):
-    dataset = MNIST(
-        root=data_path, train=False, transform=transforms.ToTensor(),
-        download=True)
-    
-    data_loader = DataLoader(
-        dataset=dataset, batch_size=variant['batch_size'], shuffle=True)
-
-    return data_loader
-
-# c is a list of conditional variables (e.g. digit index)
-# generated_x is a list of generated data (e.g. digit image)
-def save_generated_images(c, generated_x, epoch, experiment_folder):
-    experiment_figure_path = os.path.join(mnist_figure_path, experiment_folder)
-    if not os.path.exists(experiment_figure_path):
-        os.makedirs(experiment_figure_path)
-
-    plt.figure()
-    plt.figure(figsize=(5, 10))
-    for p in range(10):
-        plt.subplot(5, 2, p+1)
-        plt.text(0, 0, "c={:d}".format(c[p].item()), color='black',
-            backgroundcolor='white', fontsize=8)
-        plt.imshow(generated_x[p].view(28, 28).cpu().data.numpy())
-        plt.axis('off')
-
-    plt.savefig(
-        os.path.join(experiment_figure_path,
-                    "epoch_{:d}_gen_data.png".format(epoch)), dpi=300)
-    plt.clf()
-    plt.close('all')
-
-# zs are tensors in the latent space
-# classes are tensors of z's class
-def plot_tsne(zs, labels, class_number, experiment_folder):
-    experiment_figure_path = os.path.join(mnist_figure_path, experiment_folder)
-    if not os.path.exists(experiment_figure_path):
-        os.makedirs(experiment_figure_path)
-
-    model_tsne = TSNE(n_components=2, random_state=0)
-
-    z_states = zs.detach().cpu().numpy() # (10000, 50)
-    z_embed = model_tsne.fit_transform(z_states) # (10000, 2)
-    labels = labels.detach().cpu().numpy() # (10000, )
-
-    fig = plt.figure()
-    for ic in range(class_number):
-        # plot points belong to each class
-        ind_class = np.where(labels == ic)[0] # (n, )
-        
-        color = plt.cm.Set1(ic)
-        plt.scatter(z_embed[ind_class, 0], z_embed[ind_class, 1], s=class_number, color=color)
-
-    # save tsne image
-    tsne_save_path = os.path.join(experiment_figure_path,
-                    "test_data_tsne_embedding.png")
-    fig.savefig(tsne_save_path, dpi=300)
-
-    plt.clf()
-    plt.close("all")
-
-    print("======> Tsne embedding results saved to ", tsne_save_path)
+from prompt_dt.cvae.mnist.mnist_utils import get_train_data_loader, get_test_data_loader, save_generated_images, embed_test_dataset 
+from prompt_dt.cvae.utils import set_up_experiment_name_folder, save_model, plot_llk, anneal_beta
 
 
 def train_one_epoch(train_data_loader, svi, device, logs,
                     epoch, variant, verbose=True):
     num_epochs = int(variant['num_epochs'])
-    num_train_samples = len(train_data_loader.dataset)
+    num_train_samples = len(train_data_loader.dataset) # len(train_data_loader) is the number of batches
     bar = tqdm(train_data_loader,
             desc="CVAE Epoch {}".format(epoch).ljust(20), # Left justify string of minimum width 20
         )
@@ -171,75 +101,10 @@ def test(test_data_loader, svi, device,
     
     return test_elbo_loss, test_kl_loss
 
-def embed_test_dataset(cvae_net, test_data_loader,
-                       class_number, experiment_folder, device):
-    """
-    This is used to generate a t-sne embedding of the vae
-    """
 
-    data = test_data_loader.dataset.data.float()
-    labels = test_data_loader.dataset.targets
-
-    data = data.to(device)
-    labels = labels.to(device)
-
-    zs = cvae_net.embed_x(data, labels)
-    
-    plot_tsne(zs, labels, class_number, experiment_folder)
-
-def plot_llk(test_elbo, test_epoch_list, experiment_folder):
-    experiment_figure_path = os.path.join(mnist_figure_path, experiment_folder)
-    if not os.path.exists(experiment_figure_path):
-        os.makedirs(experiment_figure_path)
-
-    test_elbo = np.array(test_elbo)
-    test_epoch_list = np.array(test_epoch_list)
-
-    plt.figure(figsize=(30, 10))
-    sns.set_style("whitegrid")
-
-    # reverse test elbo loss so that higher is better
-    data = np.concatenate(
-        [test_epoch_list[:, sp.newaxis], -test_elbo[:, sp.newaxis]], axis=1
-    )
-
-    df = pd.DataFrame(data=data, columns=["Training Epoch", "Test ELBO"])
-    g = sns.FacetGrid(df)
-    g.map(plt.scatter, "Training Epoch", "Test ELBO")
-    g.map(plt.plot, "Training Epoch", "Test ELBO")
-
-    test_save_path = os.path.join(experiment_figure_path,
-                "test_elbo.png")
-    plt.savefig(test_save_path, dpi=300)
-
-    plt.clf()
-    plt.close("all")
-
-    print("======> Test results saved to ", test_save_path)
-
-
-# Anneal beta linearly from 0 to 1 over anneal_len epochs
-def anneal_beta(epoch, anneal_num_epochs, num_epochs):
-    assert anneal_num_epochs <= num_epochs
-    
-    # epoch index from 0
-    beta = float(epoch) / float(anneal_num_epochs)
-    # ensure beta is in [0,1] (both inclusive)
-    beta = min(beta, 1.0) 
-
-    return beta
-
-def save_model(cvae_net, experiment_folder):
-    experiment_runs_path = os.path.join(mnist_runs_path, experiment_folder)
-    if not os.path.exists(experiment_runs_path):
-        os.makedirs(experiment_runs_path)
-
-    torch.save(cvae_net.state_dict(), 
-               os.path.join(experiment_runs_path, "best_model.pth"))
-    
 def experiment():
     # parse config file
-    config_file_path = os.path.join(mnist_path, "mnist_config.yaml")
+    config_file_path = os.path.join(mnist_path, "mnist_cvae_config.yaml")
     variant = parse_config(config_file_path)
     # print out variant
     print("=========================== variant ==================================")
@@ -262,9 +127,10 @@ def experiment():
     test_data_loader = get_test_data_loader(variant)
 
     # create cvae net and register its parameters to pyro param store
-    cvae_net = MnistCVAE(latent_dim=int(variant['latent_dim']), 
+    cvae_net = ImageCVAE(latent_dim=int(variant['latent_dim']), 
                     hidden_dim=int(variant['hidden_dim']), 
                     num_labels=10, 
+                    image_height=28, image_width=28,
                     prior_distribution=variant['prior_distribution'])
     cvae_net.to(device)
 
@@ -275,13 +141,7 @@ def experiment():
     svi = SVI(cvae_net.model, cvae_net.guide, optimizer, loss=Trace_ELBO())
 
     # set up experiment name
-    group_name = variant['algorithm_name'] 
-    if variant['algorithm_name'] == "cvae" or variant['algorithm_name'] == "vae":
-        group_name += ("-"+ variant['prior_distribution'])
-
-    now = datetime.datetime.now()
-    experiment_name = "s%d-"%(seed) + now.strftime("%Y%m%d-%H%M%S").lower() 
-    experiment_folder = os.path.join(group_name, experiment_name)
+    experiment_name, experiment_folder = set_up_experiment_name_folder(variant, seed)
 
     # prepare training log
     logs = defaultdict(list)
@@ -311,7 +171,9 @@ def experiment():
             # save best model until now
             if test_elbo_loss < best_test_elbo_loss:
                 best_test_elbo_loss = test_elbo_loss
-                save_model(cvae_net, experiment_folder)
+                save_model(model=cvae_net, 
+                           runs_path=mnist_runs_path,
+                           experiment_folder=experiment_folder)
                 print("Better performance achieved: %f, model saved"%(best_test_elbo_loss))
 
             # generate data and save
@@ -328,7 +190,9 @@ def experiment():
                        device=device)
 
     # plot and save test elbo during the training process
-    plot_llk(test_elbo, test_epoch_list, experiment_folder)
+    plot_llk(test_elbo, test_epoch_list, 
+             mnist_figure_path, experiment_folder,
+             reverse_loss=True, image_name="test_elbo.png")
 
 
 if __name__ == '__main__':
