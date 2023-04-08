@@ -17,7 +17,6 @@ class PromptDecisionTransformer(nn.Module):
             act_dim,
             goal_dim,
             hidden_size,
-            no_prompt,
             prompt_method,
             n_tokens,
             max_length=None,
@@ -31,7 +30,6 @@ class PromptDecisionTransformer(nn.Module):
         self.act_dim = act_dim
         self.max_length = max_length
         self.hidden_size = hidden_size
-        self.no_prompt = no_prompt
         self.prompt_method = prompt_method
         self.goal_dim = goal_dim
 
@@ -66,30 +64,34 @@ class PromptDecisionTransformer(nn.Module):
         self.predict_return = torch.nn.Linear(hidden_size*2, 1)
 
         # prompt encoders
-        if self.no_prompt == False:
-            if self.prompt_method == "traj_prompt":
-                self.prompt_embed_timestep = nn.Embedding(max_ep_len, hidden_size)
-                self.prompt_embed_return = torch.nn.Linear(1, hidden_size)
-                self.prompt_embed_state = torch.nn.Linear(self.state_dim, hidden_size)
-                self.prompt_embed_action = torch.nn.Linear(self.act_dim, hidden_size)
-            elif self.prompt_method == "goal_prompt":
-                self.goal_prompt_embed = torch.nn.Linear(self.goal_dim, hidden_size)
-            elif self.prompt_method == "goal_state_prompt":
-                self.goal_state_prompt_embed = torch.nn.Linear(self.state_dim, hidden_size)
-            elif self.prompt_method == "goal_learned_prompt":
-                self.goal_prompt_embed = torch.nn.Linear(self.goal_dim, hidden_size)
-                self.n_tokens = n_tokens
-                # n_tokens * hidden_size
-                self.learned_prompt_embedding_return = nn.parameter.Parameter(
-                    self.initialize_learned_embedding(hidden_size))
-                self.learned_prompt_embedding_state = nn.parameter.Parameter(
-                    self.initialize_learned_embedding(hidden_size))
-                self.learned_prompt_embedding_action = nn.parameter.Parameter(
-                    self.initialize_learned_embedding(hidden_size))
-            
-            else:
-                print("Error: unknown prompt method")
-                exit()
+        if self.prompt_method == "traj_prompt":
+            self.prompt_embed_timestep = nn.Embedding(max_ep_len, hidden_size)
+            self.prompt_embed_return = torch.nn.Linear(1, hidden_size)
+            self.prompt_embed_state = torch.nn.Linear(self.state_dim, hidden_size)
+            self.prompt_embed_action = torch.nn.Linear(self.act_dim, hidden_size)
+        elif self.prompt_method == "goal_prompt":
+            self.goal_prompt_embed = torch.nn.Linear(self.goal_dim, hidden_size)
+        elif self.prompt_method == "goal_state_prompt":
+            self.goal_state_prompt_embed = torch.nn.Linear(self.state_dim, hidden_size)
+        elif self.prompt_method == "goal_learned_prompt":
+            self.goal_prompt_embed = torch.nn.Linear(self.goal_dim, hidden_size)
+            self.n_tokens = n_tokens
+            # n_tokens * hidden_size
+            self.learned_prompt_embedding_return = nn.parameter.Parameter(
+                self.initialize_learned_embedding(hidden_size))
+            self.learned_prompt_embedding_state = nn.parameter.Parameter(
+                self.initialize_learned_embedding(hidden_size))
+            self.learned_prompt_embedding_action = nn.parameter.Parameter(
+                self.initialize_learned_embedding(hidden_size))
+        elif self.prompt_method == "pure_learned_prompt":
+            self.n_tokens = n_tokens
+            # n_tokens * hidden_size
+            self.learned_prompt_embedding_return = nn.parameter.Parameter(
+                self.initialize_learned_embedding(hidden_size))
+            self.learned_prompt_embedding_state = nn.parameter.Parameter(
+                self.initialize_learned_embedding(hidden_size))
+            self.learned_prompt_embedding_action = nn.parameter.Parameter(
+                self.initialize_learned_embedding(hidden_size))
 
     def initialize_learned_embedding(self, hidden_size, random_range=0.5):
         """randomly initializes learned embedding
@@ -99,6 +101,7 @@ class PromptDecisionTransformer(nn.Module):
     
     # input: a sequence of (s,a,r,t) of length max_length
     # output: a sequence of predicted (s,a,r) of length max_length
+    # prompt is an external prompt, not include the learned prompt
     def forward(self, states, actions, rewards, returns_to_go, timesteps, attention_mask=None, prompt=None):
         batch_size, seq_length = states.shape[0], states.shape[1]
         if attention_mask is None:
@@ -133,7 +136,8 @@ class PromptDecisionTransformer(nn.Module):
             (attention_mask, attention_mask, attention_mask), dim=1
         ).permute(0, 2, 1).reshape(batch_size, 3*seq_length)
 
-        if prompt is not None:
+        # prompt is learned or an external prompt is given 
+        if self.prompt_method != "no_prompt":
             # process prompt the same as dt
             if self.prompt_method == "traj_prompt":
                 prompt_states, prompt_actions, prompt_rewards, prompt_dones, prompt_returns_to_go, prompt_timesteps, prompt_attention_mask = prompt
@@ -142,7 +146,7 @@ class PromptDecisionTransformer(nn.Module):
                 prompt_action_embeddings = self.prompt_embed_action(prompt_actions)
 
                 # if prompt_returns_to_go.shape[1] % 10 == 1:
-                #     # [B,N,1] --> [B,N-1,1] ? This is already done in flatten_prompt
+                #     # [B,N,1] --> [B,N-1,1] ? This is already done in flatten_trajectory_prompt
                 #     prompt_returns_embeddings = self.prompt_embed_return(prompt_returns_to_go[:,:-1])
                 # else:
                 prompt_returns_embeddings = self.prompt_embed_return(prompt_returns_to_go)
@@ -183,7 +187,7 @@ class PromptDecisionTransformer(nn.Module):
                 goal_prompt_embedding = self.goal_prompt_embed(goal_prompt) # [B, 128]
                 goal_prompt_embedding = torch.unsqueeze(goal_prompt_embedding, dim=1) # [B, 128] --> [B, 1, 128]
 
-                batch_size = goal_prompt_embedding.size(0)
+                #batch_size = goal_prompt_embedding.size(0)
 
                 # create attention mask for learned prompt (required_grad=False): [B, n]
                 learned_prompt_attention_mask = torch.full((batch_size, self.n_tokens), 1, device=goal_prompt_attention_mask.device)
@@ -216,15 +220,36 @@ class PromptDecisionTransformer(nn.Module):
                 prompt_stacked_attention_mask = torch.cat((goal_learned_prompt_attention_mask, 
                                                            goal_learned_prompt_attention_mask, 
                                                            goal_learned_prompt_attention_mask), dim=1) 
+            
+            elif self.prompt_method == "pure_learned_prompt":
+                # create attention mask for learned prompt (required_grad=False): [B, n]
+                learned_prompt_attention_mask = torch.full((batch_size, self.n_tokens), 1, device=self.learned_prompt_embedding_state.device)
+
+                # learned prompt embedding: [n, 128] --> [B, n, 128]
+                learned_prompt_embedding_return = self.learned_prompt_embedding_return.repeat(batch_size, 1, 1)
+                learned_prompt_embedding_state = self.learned_prompt_embedding_state.repeat(batch_size, 1, 1)
+                learned_prompt_embedding_action = self.learned_prompt_embedding_action.repeat(batch_size, 1, 1)
+
+                # [R, s, a]: [B, 3*n, 128]
+                prompt_stacked_inputs = torch.cat((learned_prompt_embedding_return, 
+                                                   learned_prompt_embedding_state, 
+                                                   learned_prompt_embedding_action), dim=1)
+                
+                # [B, n] --> [B, 3*n]
+                prompt_stacked_attention_mask = torch.cat((learned_prompt_attention_mask, 
+                                                           learned_prompt_attention_mask, 
+                                                           learned_prompt_attention_mask), dim=1) 
 
             else:
-                print("Error: undefined prompt method")
+                print("Error: undefined prompt proposal method")
                 exit()
 
             # concatenate input sequence and prompt sequence
             # assume sample one prompt for each trajectory in the batch (happen for both train and evaluation)
             stacked_inputs = torch.cat((prompt_stacked_inputs, stacked_inputs), dim=1) # [32, 75=60+15, 128], [32, 63=60+3, 128]
             stacked_attention_mask = torch.cat((prompt_stacked_attention_mask, stacked_attention_mask), dim=1) # [32, 75=60+15], [32, 63=60+3]
+        
+        # else no prompt
 
         # we feed in the input embeddings (not word indices as in NLP) to the model
         transformer_outputs = self.transformer(
@@ -235,7 +260,7 @@ class PromptDecisionTransformer(nn.Module):
         # Transformer: input shape = output last hidden shape
         x = transformer_outputs['last_hidden_state'] # [32, 75, 128], [32, 63, 128]
 
-        if prompt is None:
+        if self.prompt_method == "no_prompt":
             # reshape x so that the second dimension corresponds to the original
             # returns (0), states (1), or actions (2); i.e. x[:,1,t] is the token for s_t
             # Without prompt: actual_length = seq_length

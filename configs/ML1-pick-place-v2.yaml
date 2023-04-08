@@ -28,8 +28,10 @@ no_r: false # deduct reward from rtg or not
 no_rtg: false # input includes rtg or not
 
 # prompt
-no_prompt: false
-prompt_method: "goal_prompt" ##["traj_prompt", "goal_prompt", "goal_state_prompt", "goal_learned_prompt"]
+# ["no_prompt", "traj_prompt", "goal_prompt", 
+# "goal_state_prompt", "goal_learned_prompt", 
+# "pure_learned_prompt"]
+prompt_method: "pure_learned_prompt" 
 traj_prompt:
   prompt_episode: 1
   prompt_length: 1 #5 #2
@@ -38,7 +40,7 @@ traj_prompt:
   stochastic_prompt: true
   crop_method: "last_few" #['last_few', 'random_crop', "last_step"]
 learned_prompt: 
-  n_tokens: 5 #1
+  n_tokens: 1
 
 # training
 per_env_batch_size: 16 # number of trajectory segments per batch in each training environment
@@ -79,4 +81,4 @@ seed: 1
 device: 'cuda:0'
 
 # log
-log_to_wandb: false
+log_to_wandb: true

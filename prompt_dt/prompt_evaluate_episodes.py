@@ -6,7 +6,7 @@ import torch
 import time
 import os
 import pickle 
-from prompt_dt.prompt_utils import flatten_prompt
+from prompt_dt.prompt_utils import flatten_trajectory_prompt
 #from gym.wrappers.monitoring.video_recorder import VideoRecorder
 
 """ evaluation """
@@ -270,7 +270,6 @@ def compute_episode_length_normalized_score(eval_results, info):
     return eval_stats
 
 
-
 def save_eval_results(eval_results, file_name, folder):
     if not os.path.exists(folder):
         os.makedirs(folder)
@@ -284,25 +283,29 @@ def save_eval_results(eval_results, file_name, folder):
 
 # compute prompt in a given environment during evaluation
 def get_prompt_eval(env_id, env_name,
-                no_prompt, get_prompt_fn,
+                get_prompt_fn,
                 variant, prompt_trajectories_list, info):
-    if not no_prompt:
-        if variant['prompt_method'] == "traj_prompt":
-            # set up get one prompt fn and its parameters
-            current_get_prompt_fn = get_prompt_fn(prompt_trajectories_list[env_id], info[env_name], variant)
-            # get a single prompt since we evalute one episode at one time: [number_segments, segment_length, state_dim]
-            # concatenate its prompt segments info: [1, prompt_length, state_dim]
-            # Note that rtg's sequence length has been decreased 1 to the correct length in flatten_prompt
-            current_prompt = flatten_prompt(current_get_prompt_fn(), batch_size=1)
-        elif variant['prompt_method'] == "goal_prompt" or variant['prompt_method'] == "goal_learned_prompt":
-            # get a single prompt 
-            current_prompt = get_prompt_fn(info[env_name])
-        elif variant["prompt_method"] == "goal_state_prompt": 
-            current_prompt = get_prompt_fn(prompt_trajectories_list[env_id], info[env_name])
-        else:
-            print("Error: Unknown prompt method")
-            exit()
+    if variant['prompt_method'] == "traj_prompt":
+        # set up get one prompt fn and its parameters
+        current_get_prompt_fn = get_prompt_fn(prompt_trajectories_list[env_id], info[env_name], variant)
+        # get a single trajectory prompt since we evalute one episode at one time: [number_segments, segment_length, state_dim]
+        # concatenate its prompt segments info: [1, prompt_length, state_dim]
+        # Note that rtg's sequence length has been decreased 1 to the correct length in flatten_trajectory_prompt
+        current_prompt = flatten_trajectory_prompt(current_get_prompt_fn(), batch_size=1)
+    elif variant['prompt_method'] == "goal_prompt" or variant['prompt_method'] == "goal_learned_prompt":
+        # get a single goal prompt 
+        current_prompt = get_prompt_fn(info[env_name])
+    elif variant["prompt_method"] == "goal_state_prompt": 
+        # set up get one prompt fn and its parameters
+        current_get_prompt_fn = get_prompt_fn(prompt_trajectories_list[env_id], info[env_name])
+        # get a single goal state prompt
+        current_prompt = current_get_prompt_fn()
+    elif variant['prompt_method'] == "no_prompt" or variant['prompt_method'] == "pure_learned_prompt":
+        # prompt is None
+        current_prompt = get_prompt_fn()
     else:
-        current_prompt = None
+        print("Error: Unknown prompt method")
+        exit()
+    
     
     return current_prompt

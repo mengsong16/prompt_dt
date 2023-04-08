@@ -132,7 +132,7 @@ def get_total_num_trajectory(trajectory_num):
 # reshape trajectory prompts to a new batch_size
 # [old_batch_size, segment_length, state_dim] --> [new_batch_size, -1, state_dim]
 # -1: old_batch_size * segment_length / new_batch_size
-def flatten_prompt(prompt, batch_size):
+def flatten_trajectory_prompt(prompt, batch_size):
     p_s, p_a, p_r, p_d, p_rtg, p_timesteps, p_mask = prompt
     # p_s: [old_batch_size, segment_length, state_dim]=[16, 5, 27]
     # if new_batch_size == old_batch_size, nothing changes
@@ -150,7 +150,7 @@ def flatten_prompt(prompt, batch_size):
     return p_s, p_a, p_r, p_d, p_rtg, p_timesteps, p_mask
 
 # get one trajectory prompt or many
-def get_prompt(prompt_trajectories, info, variant):
+def get_trajectory_prompt(prompt_trajectories, info, variant):
     num_trajectories, p_sample, sorted_inds = info['num_trajectories'], info['p_sample'], info['sorted_inds']
     max_ep_len, state_mean, state_std, scale = info['max_ep_len'], info['state_mean'], info['state_std'], info['scale']
     state_dim, act_dim, device = info['state_dim'], info['act_dim'], info['device']
@@ -197,7 +197,7 @@ def get_prompt(prompt_trajectories, info, variant):
                        state_mean, state_std, scale,
                        s, a, r, d, rtg, timesteps, mask)
             
-        # numpy to torch tensor
+        # list to torch tensor
         s, a, r, d, rtg, timesteps, mask = numpy_to_tensor(s, a, r, d, rtg, timesteps, mask, device)
         
         return s, a, r, d, rtg, timesteps, mask
@@ -208,7 +208,7 @@ def get_prompt(prompt_trajectories, info, variant):
 # Note that for each environment, collect a batch of input trajectories 
 # and a batch of trajectory prompts with batch size per_env_batch_size
 # therefore, total batch size = n_train_env * per_env_batch_size
-def get_prompt_batch(trajectories_list, prompt_trajectories_list, info, variant, train_env_name_list):
+def get_trajectory_prompt_batch(trajectories_list, prompt_trajectories_list, info, variant, train_env_name_list):
     per_env_batch_size = variant['per_env_batch_size']
 
     # Note that batch_size=per_env_batch_size
@@ -219,18 +219,18 @@ def get_prompt_batch(trajectories_list, prompt_trajectories_list, info, variant,
             # set up get prompt function
             # crop trajectory prompt from prompt trajectories
             if prompt_trajectories_list:
-                get_prompt_fn = get_prompt(prompt_trajectories_list[env_id], info[env_name], variant)
+                get_prompt_fn = get_trajectory_prompt(prompt_trajectories_list[env_id], info[env_name], variant)
             # crop trajectory prompt from regular trajectories
             else:
-                get_prompt_fn = get_prompt(trajectories_list[env_id], info[env_name], variant)
+                get_prompt_fn = get_trajectory_prompt(trajectories_list[env_id], info[env_name], variant)
             
             # set up get batch function
             get_batch_fn = get_batch(trajectories_list[env_id], info[env_name], variant) 
             
             # get a batch of trajectory prompts
-            # Note that rtg's sequence length has been decreased 1 to the correct length in flatten_prompt
-            # Otherwise, flatten_prompt changes nothing
-            prompt = flatten_prompt(get_prompt_fn(batch_size), batch_size) 
+            # Note that rtg's sequence length has been decreased 1 to the correct length in flatten_trajectory_prompt
+            # Otherwise, flatten_trajectory_prompt changes nothing
+            prompt = flatten_trajectory_prompt(get_prompt_fn(batch_size), batch_size) 
             p_s, p_a, p_r, p_d, p_rtg, p_timesteps, p_mask = prompt
             p_s_list.append(p_s)
             p_a_list.append(p_a)
@@ -244,12 +244,6 @@ def get_prompt_batch(trajectories_list, prompt_trajectories_list, info, variant,
             batch = get_batch_fn(batch_size=batch_size)
             s, a, r, d, rtg, timesteps, mask = batch
             
-            # rewrite reward and return-to-go in input trajectories if necessary
-            if variant['no_r']:
-                r = torch.zeros_like(r)
-            if variant['no_rtg']:
-                rtg = torch.zeros_like(rtg)
-
             s_list.append(s)
             a_list.append(a)
             r_list.append(r)
@@ -261,6 +255,7 @@ def get_prompt_batch(trajectories_list, prompt_trajectories_list, info, variant,
         # from list to tensor
         p_s, p_a, p_r, p_d = torch.cat(p_s_list, dim=0), torch.cat(p_a_list, dim=0), torch.cat(p_r_list, dim=0), torch.cat(p_d_list, dim=0)
         p_rtg, p_timesteps, p_mask = torch.cat(p_rtg_list, dim=0), torch.cat(p_timesteps_list, dim=0), torch.cat(p_mask_list, dim=0)
+        
         s, a, r, d = torch.cat(s_list, dim=0), torch.cat(a_list, dim=0), torch.cat(r_list, dim=0), torch.cat(d_list, dim=0)
         rtg, timesteps, mask = torch.cat(rtg_list, dim=0), torch.cat(timesteps_list, dim=0), torch.cat(mask_list, dim=0)
         
@@ -286,35 +281,12 @@ def get_goal_prompt(info):
 
     return goal, mask
 
-# get one goal state prompt
-def get_goal_state_prompt(prompt_trajectories, info):
-    device = info['device']
-    state_dim = info['state_dim']
-
-    # random sample one prompt trajectories from the whole trajectory pool (p_sample=1)
-    batch_inds = np.random.choice(
-        np.arange(len(prompt_trajectories)),
-        size=1,
-        replace=True,
-    )
-    trajectory_index = batch_inds[0]
-    traj = prompt_trajectories[trajectory_index]
-
-    # get last state of the chosen trajectory
-    # (state_dim, ) --> (1, state_dim)
-    goal_state = traj['observations'][-1].reshape(1, state_dim)
-    mask = np.ones((1, 1))
-
-    # numpy to torch tensor
-    goal_state = torch.from_numpy(goal_state).to(dtype=torch.float32, device=device) # [1, state_dim]
-    mask = torch.from_numpy(mask).to(device=device) # [1, 1]
-
-    return goal_state, mask
 
 # get a batch of trajectories and goal prompts
 # Note that for each environment, collect a batch of input trajectories 
 # therefore, total batch size = n_train_env * per_env_batch_size
-def get_goal_prompt_batch(trajectories_list, prompt_trajectories_list, info, variant, train_env_name_list):
+# prompt are repeated to a batch of prompts
+def get_goal_prompt_batch(trajectories_list, info, variant, train_env_name_list):
     per_env_batch_size = variant['per_env_batch_size']
 
     # Note that batch_size=per_env_batch_size
@@ -325,16 +297,11 @@ def get_goal_prompt_batch(trajectories_list, prompt_trajectories_list, info, var
             # get a single goal prompt
             if variant["prompt_method"] == "goal_prompt" or variant["prompt_method"] == "goal_learned_prompt":
                 goal, mask = get_goal_prompt(info[env_name])
-            elif variant["prompt_method"] == "goal_state_prompt": 
-                if prompt_trajectories_list:   
-                    goal, mask = get_goal_state_prompt(prompt_trajectories_list[env_id], info[env_name])
-                else:
-                    goal, mask = get_goal_state_prompt(trajectories_list[env_id], info[env_name])
             else:
                 print("Error: Unknown goal prompt method")
                 exit()
             
-            # get a batch of goal prompts
+            # repeat one goal prompt to a batch of goal prompts
             p_goal = goal.repeat(batch_size, 1)
             p_mask = mask.repeat(batch_size, 1)
 
@@ -344,17 +311,10 @@ def get_goal_prompt_batch(trajectories_list, prompt_trajectories_list, info, var
             # set up get batch function
             get_batch_fn = get_batch(trajectories_list[env_id], info[env_name], variant) 
             
-
             # get a batch of input trajectories
             batch = get_batch_fn(batch_size=batch_size)
             s, a, r, d, rtg, timesteps, mask = batch
             
-            # rewrite reward and return-to-go in input trajectories if necessary
-            if variant['no_r']:
-                r = torch.zeros_like(r)
-            if variant['no_rtg']:
-                rtg = torch.zeros_like(rtg)
-
             s_list.append(s)
             a_list.append(a)
             r_list.append(r)
@@ -366,6 +326,7 @@ def get_goal_prompt_batch(trajectories_list, prompt_trajectories_list, info, var
         # from list to tensor
         p_goal = torch.cat(p_goal_list, dim=0)
         p_mask = torch.cat(p_mask_list, dim=0)
+
         s, a, r, d = torch.cat(s_list, dim=0), torch.cat(a_list, dim=0), torch.cat(r_list, dim=0), torch.cat(d_list, dim=0)
         rtg, timesteps, mask = torch.cat(rtg_list, dim=0), torch.cat(timesteps_list, dim=0), torch.cat(mask_list, dim=0)
         
@@ -375,7 +336,98 @@ def get_goal_prompt_batch(trajectories_list, prompt_trajectories_list, info, var
         return prompt, batch
     return fn    
 
-""" batches """
+""" goal state prompts """
+# get one or many goal state prompts
+def get_goal_state_prompt(prompt_trajectories, info):
+    device = info['device']
+    state_dim = info['state_dim']
+
+    def fn(sample_size=1):
+        # randomly sample a batch of prompt trajectories from the whole trajectory pool (p_sample=1)
+        batch_inds = np.random.choice(
+            np.arange(len(prompt_trajectories)),
+            size=sample_size,
+            replace=True,
+        )
+
+        goal_states, masks = [], []
+        for i in range(sample_size):
+            trajectory_index = batch_inds[i]
+            traj = prompt_trajectories[trajectory_index]
+
+            # get last state of the chosen trajectory
+            # (state_dim, ) --> (1, state_dim)
+            goal_state = traj['observations'][-1].reshape(1, state_dim)
+            goal_states.append(goal_state)
+            mask = np.ones((1, 1))
+            masks.append(mask)
+
+        # list to torch tensor
+        goal_states = torch.from_numpy(np.concatenate(goal_states, axis=0)).to(dtype=torch.float32, device=device) # [B, state_dim]
+        masks = torch.from_numpy(np.concatenate(masks, axis=0)).to(device=device) # [B, 1]
+
+
+        return goal_states, masks
+    
+    return fn
+
+# get a batch of trajectories and goal state prompts
+# Note that for each environment, collect a batch of input trajectories and a batch of goal state prompts
+# therefore, total batch size = n_train_env * per_env_batch_size
+def get_goal_state_prompt_batch(trajectories_list, prompt_trajectories_list, info, variant, train_env_name_list):
+    per_env_batch_size = variant['per_env_batch_size']
+
+    # Note that batch_size=per_env_batch_size
+    def fn(batch_size=per_env_batch_size):
+        p_goal_state_list, p_mask_list = [], []
+        s_list, a_list, r_list, d_list, rtg_list, timesteps_list, mask_list = [], [], [], [], [], [], []
+        for env_id, env_name in enumerate(train_env_name_list): 
+            # set up get prompt function
+            # sample goal states from prompt trajectory list
+            if prompt_trajectories_list:   
+                get_prompt_fn = get_goal_state_prompt(prompt_trajectories_list[env_id], info[env_name])
+            # sample goal states from input trajectory list
+            else:
+                get_prompt_fn = get_goal_state_prompt(trajectories_list[env_id], info[env_name])
+        
+            # get a batch of goal state prompts
+            p_goal_state, p_mask = get_prompt_fn(batch_size)
+
+            p_goal_state_list.append(p_goal_state)
+            p_mask_list.append(p_mask)
+           
+            # set up get batch function
+            get_batch_fn = get_batch(trajectories_list[env_id], info[env_name], variant) 
+            
+            # get a batch of input trajectories
+            batch = get_batch_fn(batch_size=batch_size)
+            s, a, r, d, rtg, timesteps, mask = batch
+            
+            s_list.append(s)
+            a_list.append(a)
+            r_list.append(r)
+            d_list.append(d)
+            rtg_list.append(rtg)
+            timesteps_list.append(timesteps)
+            mask_list.append(mask)
+
+        # from list to tensor
+        p_goal_state = torch.cat(p_goal_state_list, dim=0) # [32,20]
+        p_mask = torch.cat(p_mask_list, dim=0) # [32,1]
+
+        s, a, r, d = torch.cat(s_list, dim=0), torch.cat(a_list, dim=0), torch.cat(r_list, dim=0), torch.cat(d_list, dim=0)
+        rtg, timesteps, mask = torch.cat(rtg_list, dim=0), torch.cat(timesteps_list, dim=0), torch.cat(mask_list, dim=0)
+
+        
+        prompt = p_goal_state, p_mask
+        batch = s, a, r, d, rtg, timesteps, mask
+
+        return prompt, batch
+    return fn  
+
+""" trajectory batches """
+
+# from list to torch tensor
 def numpy_to_tensor(s, a, r, d, rtg, timesteps, mask, device):
     s = torch.from_numpy(np.concatenate(s, axis=0)).to(dtype=torch.float32, device=device)
     a = torch.from_numpy(np.concatenate(a, axis=0)).to(dtype=torch.float32, device=device)
@@ -476,16 +528,58 @@ def get_batch(trajectories, info, variant):
                        state_mean, state_std, scale,
                        s, a, r, d, rtg, timesteps, mask)
             
-        # numpy to torch tensor
+        # list to torch tensor
         s, a, r, d, rtg, timesteps, mask = numpy_to_tensor(s, a, r, d, rtg, timesteps, mask, device)
+
+        # rewrite reward and return-to-go in input trajectories if necessary
+        if variant['no_r']:
+            r = torch.zeros_like(r)
+        if variant['no_rtg']:
+            rtg = torch.zeros_like(rtg)
         
         return s, a, r, d, rtg, timesteps, mask
 
     return fn
 
+""" no prompt """
+# get a batch of trajectories with no prompts
+# Note that for each environment, collect a batch of input trajectories
+# therefore, total batch size = n_train_env * per_env_batch_size
+def get_no_prompt_batch(trajectories_list, info, variant, train_env_name_list):
+    per_env_batch_size = variant['per_env_batch_size']
+
+    # Note that batch_size=per_env_batch_size
+    def fn(batch_size=per_env_batch_size):
+        s_list, a_list, r_list, d_list, rtg_list, timesteps_list, mask_list = [], [], [], [], [], [], []
+        for env_id, env_name in enumerate(train_env_name_list): 
+            # set up get batch function
+            get_batch_fn = get_batch(trajectories_list[env_id], info[env_name], variant) 
+            
+            # get a batch of input trajectories
+            batch = get_batch_fn(batch_size=batch_size)
+            s, a, r, d, rtg, timesteps, mask = batch
+            
+            s_list.append(s)
+            a_list.append(a)
+            r_list.append(r)
+            d_list.append(d)
+            rtg_list.append(rtg)
+            timesteps_list.append(timesteps)
+            mask_list.append(mask)
+
+        # from list to tensor
+        s, a, r, d = torch.cat(s_list, dim=0), torch.cat(a_list, dim=0), torch.cat(r_list, dim=0), torch.cat(d_list, dim=0)
+        rtg, timesteps, mask = torch.cat(rtg_list, dim=0), torch.cat(timesteps_list, dim=0), torch.cat(mask_list, dim=0)
+        
+        batch = s, a, r, d, rtg, timesteps, mask
+
+        return None, batch
+    return fn 
+
+def get_no_prompt():
+    return None 
 
 """ data processing """
-
 def get_total_data_mean_std(trajectories):
     # colect states from all trajectories
     states = []

@@ -20,7 +20,7 @@ class PromptSequenceTrainer:
         self.scheduler = scheduler
         self.eval_fns = [] if eval_fns is None else eval_fns
 
-        # get_prompt_batch_fn = get_prompt_batch(train_trajectories_list, train_prompt_trajectories_list, train_info, variant, train_env_name_list)
+        # get_prompt_batch_fn = get_trajectory_prompt_batch(train_trajectories_list, train_prompt_trajectories_list, train_info, variant, train_env_name_list)
         self.get_prompt_batch_fn = get_prompt_batch_fn # function with parameters
 
         # set up loss function
@@ -35,7 +35,7 @@ class PromptSequenceTrainer:
             exit()
 
     # train for one iteration
-    def pure_train_iteration_mix(self, num_steps, no_prompt):
+    def pure_train_iteration_mix(self, num_steps):
 
         train_losses = []
         logs = dict()
@@ -44,7 +44,7 @@ class PromptSequenceTrainer:
 
         self.model.train()
         for _ in range(num_steps):
-            train_loss = self.train_step_mix(no_prompt)
+            train_loss = self.train_step_mix()
             train_losses.append(train_loss)
             if self.scheduler is not None:
                 self.scheduler.step()
@@ -56,10 +56,12 @@ class PromptSequenceTrainer:
         return logs
 
     # train for one step
-    def train_step_mix(self, no_prompt):
+    def train_step_mix(self):
         # get prompt batch and trajectory batch
-        # no matter whether we actually use prompt or not
+        # prompt could be None
         prompt, batch = self.get_prompt_batch_fn()
+
+
         states, actions, rewards, dones, rtg, timesteps, attention_mask = batch
         # Note that input action sequence is exactly the ground truth output action sequence
         action_target = torch.clone(actions)
@@ -70,13 +72,8 @@ class PromptSequenceTrainer:
         # rtg[:,:-1].shape: [B, segment_length, 1]
         # rewards are not used in model.forward
 
-        if no_prompt:
-            state_preds, action_preds, reward_preds = self.model.forward(
-                states, actions, rewards, rtg[:,:-1], timesteps, attention_mask=attention_mask, prompt=None
-            )
-        else:
-            state_preds, action_preds, reward_preds = self.model.forward(
-                states, actions, rewards, rtg[:,:-1], timesteps, attention_mask=attention_mask, prompt=prompt
+        state_preds, action_preds, reward_preds = self.model.forward(
+            states, actions, rewards, rtg[:,:-1], timesteps, attention_mask=attention_mask, prompt=prompt
             )
 
         # apply attention mask
@@ -127,7 +124,7 @@ class PromptSequenceTrainer:
     def eval_iteration_multienv(self, get_prompt_fn, prompt_trajectories_list, 
                                 eval_episodes, env_name_list, info, 
                                 variant, env_list, iter_num, 
-                                print_logs, no_prompt, group):
+                                print_logs, group):
 
         print('======> Evaluate at tasks: ', env_name_list)
 
@@ -144,7 +141,7 @@ class PromptSequenceTrainer:
             
             # sample a prompt and use it to evaluate n episodes
             current_prompt = get_prompt_eval(env_id, env_name,
-                no_prompt, get_prompt_fn,
+                get_prompt_fn,
                 variant, prompt_trajectories_list, info)
             
             # evaluate an env with a given target rtg in current environment for num_eval_episodes
