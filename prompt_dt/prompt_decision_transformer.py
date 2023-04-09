@@ -69,7 +69,7 @@ class PromptDecisionTransformer(nn.Module):
             self.prompt_embed_return = torch.nn.Linear(1, hidden_size)
             self.prompt_embed_state = torch.nn.Linear(self.state_dim, hidden_size)
             self.prompt_embed_action = torch.nn.Linear(self.act_dim, hidden_size)
-        elif self.prompt_method == "goal_prompt":
+        elif self.prompt_method == "goal_prompt" or self.prompt_method == "goal_diff_prompt":
             self.goal_prompt_embed = torch.nn.Linear(self.goal_dim, hidden_size)
         elif self.prompt_method == "goal_state_prompt":
             self.goal_state_prompt_embed = torch.nn.Linear(self.state_dim, hidden_size)
@@ -99,21 +99,9 @@ class PromptDecisionTransformer(nn.Module):
         
         return torch.FloatTensor(self.n_tokens, hidden_size).uniform_(-random_range, random_range)
     
-    # input: a sequence of (s,a,r,t) of length max_length
-    # output: a sequence of predicted (s,a,r) of length max_length
-    # prompt is an external prompt, not include the learned prompt
-    def forward(self, states, actions, rewards, returns_to_go, timesteps, attention_mask=None, prompt=None):
-        batch_size, seq_length = states.shape[0], states.shape[1]
-        if attention_mask is None:
-            # attention mask for GPT: 1 if can be attended to, 0 if not
-            attention_mask = torch.ones((batch_size, seq_length), dtype=torch.long)
-
-        # embed each modality with a different head
-        state_embeddings = self.embed_state(states)  # [B,L,state_dim] --> [B,L,hidden_size]
-        action_embeddings = self.embed_action(actions) # [B,L,action_dim] --> [B,L,hidden_size]
-        returns_embeddings = self.embed_return(returns_to_go) # [B,L,1] --> [B,L,hidden_size]
-        time_embeddings = self.embed_timestep(timesteps) # [B,L,1] --> [B,L,hidden_size]
-
+    # concat prompt and input sequence 
+    def forward_embedding_concat(self, returns_embeddings, state_embeddings, action_embeddings, 
+                          time_embeddings,attention_mask, prompt, batch_size, seq_length):
         # time embeddings are treated similar to positional embeddings
         state_embeddings = state_embeddings + time_embeddings
         action_embeddings = action_embeddings + time_embeddings
@@ -250,6 +238,26 @@ class PromptDecisionTransformer(nn.Module):
             stacked_attention_mask = torch.cat((prompt_stacked_attention_mask, stacked_attention_mask), dim=1) # [32, 75=60+15], [32, 63=60+3]
         
         # else no prompt
+
+        return stacked_inputs, stacked_attention_mask
+
+    # input: a sequence of (s,a,r,t) of length max_length
+    # output: a sequence of predicted (s,a,r) of length max_length
+    # prompt is an external prompt, not include the learned prompt
+    def forward(self, states, actions, rewards, returns_to_go, timesteps, attention_mask=None, prompt=None):
+        batch_size, seq_length = states.shape[0], states.shape[1]
+        if attention_mask is None:
+            # attention mask for GPT: 1 if can be attended to, 0 if not
+            attention_mask = torch.ones((batch_size, seq_length), dtype=torch.long)
+
+        # embed each modality with a different head
+        state_embeddings = self.embed_state(states)  # [B,L,state_dim] --> [B,L,hidden_size]
+        action_embeddings = self.embed_action(actions) # [B,L,action_dim] --> [B,L,hidden_size]
+        returns_embeddings = self.embed_return(returns_to_go) # [B,L,1] --> [B,L,hidden_size]
+        time_embeddings = self.embed_timestep(timesteps) # [B,L,1] --> [B,L,hidden_size]
+
+        stacked_inputs, stacked_attention_mask = self.forward_embedding_concat(returns_embeddings, state_embeddings, action_embeddings, 
+                          time_embeddings,attention_mask, prompt, batch_size, seq_length)
 
         # we feed in the input embeddings (not word indices as in NLP) to the model
         transformer_outputs = self.transformer(
