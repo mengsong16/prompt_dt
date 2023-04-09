@@ -31,7 +31,7 @@ def set_up_get_prompt_fn(variant):
     # set up get prompt function
     if variant['prompt_method'] == "traj_prompt":
         get_prompt_fn = get_trajectory_prompt
-    elif variant['prompt_method'] == "goal_prompt" or variant['prompt_method'] == "goal_learned_prompt":
+    elif variant['prompt_method'] == "goal_prompt" or variant['prompt_method'] == "goal_learned_prompt" or variant['prompt_method'] == "goal_diff_prompt":
         get_prompt_fn = get_goal_prompt
     elif variant['prompt_method'] == "goal_state_prompt":
         get_prompt_fn = get_goal_state_prompt
@@ -48,7 +48,7 @@ def set_up_get_prompt_batch_fn(variant,
                train_info, train_env_name_list):
     if variant['prompt_method'] == "traj_prompt":
         get_prompt_batch_fn = get_trajectory_prompt_batch(train_trajectories_list, train_prompt_trajectories_list, train_info, variant, train_env_name_list)
-    elif variant['prompt_method'] == "goal_prompt" or variant['prompt_method'] == "goal_learned_prompt":
+    elif variant['prompt_method'] == "goal_prompt" or variant['prompt_method'] == "goal_learned_prompt" or variant['prompt_method'] == "goal_diff_prompt":
         get_prompt_batch_fn = get_goal_prompt_batch(train_trajectories_list, train_info, variant, train_env_name_list)
     elif variant['prompt_method'] == "goal_state_prompt":
         get_prompt_batch_fn = get_goal_state_prompt_batch(train_trajectories_list, train_prompt_trajectories_list, train_info, variant, train_env_name_list)

@@ -295,7 +295,7 @@ def get_goal_prompt_batch(trajectories_list, info, variant, train_env_name_list)
         s_list, a_list, r_list, d_list, rtg_list, timesteps_list, mask_list = [], [], [], [], [], [], []
         for env_id, env_name in enumerate(train_env_name_list):
             # get a single goal prompt
-            if variant["prompt_method"] == "goal_prompt" or variant["prompt_method"] == "goal_learned_prompt":
+            if variant["prompt_method"] == "goal_prompt" or variant["prompt_method"] == "goal_learned_prompt" or variant['prompt_method'] == "goal_diff_prompt":
                 goal, mask = get_goal_prompt(info[env_name])
             else:
                 print("Error: Unknown goal prompt method")

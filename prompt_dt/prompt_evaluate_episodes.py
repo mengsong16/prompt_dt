@@ -292,7 +292,7 @@ def get_prompt_eval(env_id, env_name,
         # concatenate its prompt segments info: [1, prompt_length, state_dim]
         # Note that rtg's sequence length has been decreased 1 to the correct length in flatten_trajectory_prompt
         current_prompt = flatten_trajectory_prompt(current_get_prompt_fn(), batch_size=1)
-    elif variant['prompt_method'] == "goal_prompt" or variant['prompt_method'] == "goal_learned_prompt":
+    elif variant['prompt_method'] == "goal_prompt" or variant['prompt_method'] == "goal_learned_prompt" or variant['prompt_method'] == "goal_diff_prompt":
         # get a single goal prompt 
         current_prompt = get_prompt_fn(info[env_name])
     elif variant["prompt_method"] == "goal_state_prompt": 

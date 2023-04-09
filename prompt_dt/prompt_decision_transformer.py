@@ -99,6 +99,45 @@ class PromptDecisionTransformer(nn.Module):
         
         return torch.FloatTensor(self.n_tokens, hidden_size).uniform_(-random_range, random_range)
     
+    # mix goal prompt and input sequence 
+    def forward_embedding_mix(self, returns_embeddings, state_embeddings, action_embeddings, 
+                          time_embeddings,attention_mask, prompt, batch_size, seq_length):
+        
+        goal_prompts, prompt_attention_mask = prompt #[B, goal_dim], [B, 1]
+        goal_prompt_embeddings = self.goal_prompt_embed(goal_prompts) # [B, 128]
+
+        goal_prompt_embeddings = torch.unsqueeze(goal_prompt_embeddings, dim=1) # [B, 128] --> [B, 1, 128] 
+        goal_prompt_embeddings = goal_prompt_embeddings.repeat(1, seq_length, 1) # [B, 1, 128] --> [B, L, 128]
+        
+        # s = g - s: [B, L, 128] --> [B, L, 128]
+        state_embeddings = goal_prompt_embeddings - state_embeddings
+
+        # time embeddings are treated similar to positional embeddings
+        state_embeddings = state_embeddings + time_embeddings
+        action_embeddings = action_embeddings + time_embeddings
+        returns_embeddings = returns_embeddings + time_embeddings
+
+        # this makes the sequence look like (R_1, s_1, a_1, R_2, s_2, a_2, ...)
+        # which works nice in an autoregressive sense since states predict actions
+        # after stacking, before permutation: [batch_size, 3, seq_length, hidden_size] (dim 1 is a new dim)
+        # after permutation: [batch_size, seq_length, 3, hidden_size]
+        # after reshape: sequence length becomes [batch_size, 3*seq_length, hidden_size]
+        stacked_inputs = torch.stack(
+            (returns_embeddings, state_embeddings, action_embeddings), dim=1
+        ).permute(0, 2, 1, 3).reshape(batch_size, 3*seq_length, self.hidden_size)
+        
+        # embed the concatenated input
+        stacked_inputs = self.embed_ln(stacked_inputs)
+
+        # to make the attention mask fit the stacked inputs, have to stack it as well
+        stacked_attention_mask = torch.stack(
+            (attention_mask, attention_mask, attention_mask), dim=1
+        ).permute(0, 2, 1).reshape(batch_size, 3*seq_length)
+
+        return stacked_inputs, stacked_attention_mask
+
+        
+        
     # concat prompt and input sequence 
     def forward_embedding_concat(self, returns_embeddings, state_embeddings, action_embeddings, 
                           time_embeddings,attention_mask, prompt, batch_size, seq_length):
@@ -228,9 +267,7 @@ class PromptDecisionTransformer(nn.Module):
                                                            learned_prompt_attention_mask, 
                                                            learned_prompt_attention_mask), dim=1) 
 
-            else:
-                print("Error: undefined prompt proposal method")
-                exit()
+            
 
             # concatenate input sequence and prompt sequence
             # assume sample one prompt for each trajectory in the batch (happen for both train and evaluation)
@@ -256,7 +293,11 @@ class PromptDecisionTransformer(nn.Module):
         returns_embeddings = self.embed_return(returns_to_go) # [B,L,1] --> [B,L,hidden_size]
         time_embeddings = self.embed_timestep(timesteps) # [B,L,1] --> [B,L,hidden_size]
 
-        stacked_inputs, stacked_attention_mask = self.forward_embedding_concat(returns_embeddings, state_embeddings, action_embeddings, 
+        if self.prompt_method == "goal_diff_prompt":
+            stacked_inputs, stacked_attention_mask = self.forward_embedding_mix(returns_embeddings, state_embeddings, action_embeddings, 
+                          time_embeddings,attention_mask, prompt, batch_size, seq_length)
+        else:
+            stacked_inputs, stacked_attention_mask = self.forward_embedding_concat(returns_embeddings, state_embeddings, action_embeddings, 
                           time_embeddings,attention_mask, prompt, batch_size, seq_length)
 
         # we feed in the input embeddings (not word indices as in NLP) to the model
@@ -268,16 +309,13 @@ class PromptDecisionTransformer(nn.Module):
         # Transformer: input shape = output last hidden shape
         x = transformer_outputs['last_hidden_state'] # [32, 75, 128], [32, 63, 128]
 
-        if self.prompt_method == "no_prompt":
-            # reshape x so that the second dimension corresponds to the original
-            # returns (0), states (1), or actions (2); i.e. x[:,1,t] is the token for s_t
-            # Without prompt: actual_length = seq_length
-            x = x.reshape(batch_size, seq_length, 3, self.hidden_size).permute(0, 2, 1, 3)
-        else:
-            # With prompt: actual_length = seq_length + prompt_length
-            # traj_prompt: [32, 25, 3, 128] --> [32, 3, 25, 128]
-            # goal_prompt: [32, 21, 3, 128] --> [32, 3, 21, 128]
-            x = x.reshape(batch_size, -1, 3, self.hidden_size).permute(0, 2, 1, 3) 
+        # reshape x so that the second dimension corresponds to the original
+        # returns (0), states (1), or actions (2); i.e. x[:,1,t] is the token for s_t
+        # Without prompt: actual_length = seq_length
+        # With prompt: actual_length = seq_length + prompt_length
+        # traj_prompt: [32, 25, 3, 128] --> [32, 3, 25, 128]
+        # goal_prompt: [32, 21, 3, 128] --> [32, 3, 21, 128]
+        x = x.reshape(batch_size, -1, 3, self.hidden_size).permute(0, 2, 1, 3) 
         
 
         # note here all the prompts are left-appended to x, so only return the last [:, -seq_length:, :] corresponding to batch data
