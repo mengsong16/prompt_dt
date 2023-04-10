@@ -88,8 +88,8 @@ class PromptDecisionTransformer(nn.Module):
             self.prompt_embed_state = torch.nn.Linear(self.state_dim, hidden_size)
             self.prompt_embed_action = torch.nn.Linear(self.act_dim, hidden_size)
         elif self.prompt_method == "goal_prompt" or self.prompt_method == "goal_diff_prompt":
-            #self.goal_prompt_embed = torch.nn.Linear(self.goal_dim, hidden_size)
-            self.goal_prompt_embed = HeavyEncoder(input_dim=self.goal_dim, output_dim=hidden_size)
+            self.goal_prompt_embed = torch.nn.Linear(self.goal_dim, hidden_size)
+            #self.goal_prompt_embed = HeavyEncoder(input_dim=self.goal_dim, output_dim=hidden_size)
         elif self.prompt_method == "goal_state_prompt":
             self.goal_state_prompt_embed = torch.nn.Linear(self.state_dim, hidden_size)
         elif self.prompt_method == "goal_learned_prompt":

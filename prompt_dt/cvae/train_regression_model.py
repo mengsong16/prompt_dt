@@ -4,55 +4,38 @@ from torch.utils.data import DataLoader
 import torch.nn.functional as F
 import os
 from collections import defaultdict
-from prompt_dt.cvae.mnist.mnist_utils import get_train_data_loader, get_test_data_loader, save_generated_images
-from prompt_dt.cvae.mnist.mnist_utils import idx2onehot
 from prompt_dt.cvae.utils import set_up_experiment_name_folder, save_model, plot_llk
 from prompt_dt.utils.other import seed_other
 from prompt_dt.utils.path import *
 from prompt_dt.utils.other import parse_config
+from prompt_dt.cvae.data_loader import get_train_data_loader, get_test_data_loader
 import numpy as np
 from tqdm import tqdm
 
 # c --> x
-class DeterministicImageDecoder(nn.Module):
-    def __init__(self, num_labels, 
-                 image_height, image_width,
+class DeterministicDecoder(nn.Module):
+    def __init__(self, input_dim, output_dim,
                  hidden_dim):
         super().__init__()
 
-        self.image_height = image_height
-        self.image_width = image_width
-
-        self.num_labels = num_labels
-
-        data_dim = self.image_height * self.image_width
-
         self.MLP = nn.Sequential(
-            nn.Linear(self.num_labels, hidden_dim),
+            nn.Linear(input_dim, hidden_dim),
             nn.ReLU(),
             nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
-            nn.Linear(hidden_dim, data_dim)
+            nn.Linear(hidden_dim, output_dim)
         )
 
-        self.sigmoid = nn.Sigmoid()
-
-    def forward(self, label_idx):
-        c = idx2onehot(label_idx, n=self.num_labels)
-
+    def forward(self, c):
         x = self.MLP(c)
-        x = self.sigmoid(x)
 
         return x
     
-    def generate_x(self, label_idx):
+    def generate_x(self, c):
         with torch.no_grad():
-            pred_x = self.forward(label_idx)
-            # reshape 1D vectors to 2D images
-            recon_x = pred_x.reshape(-1, self.image_height, self.image_width)
-        
-        return recon_x
-
+            pred_x = self.forward(c)
+            
+        return pred_x
 
 
 def train_one_epoch(model, train_data_loader,
@@ -71,14 +54,13 @@ def train_one_epoch(model, train_data_loader,
         )
 
         epoch_loss = 0
-        for iteration, (target_x, label) in enumerate(bar):
-            target_x, label = target_x.to(device), label.to(device)
+        for iteration, (target_x, c) in enumerate(bar):
+            target_x, c = target_x.to(device), c.to(device)
             batch_size = target_x.size(0)
-            target_x = target_x.view(batch_size, -1)
 
             optimizer.zero_grad()
 
-            pred_x = model(label)
+            pred_x = model(c)
             loss = loss_fn(pred_x, target_x)
                 
             loss.backward()
@@ -108,12 +90,11 @@ def test(model, test_data_loader,
 
     test_loss = 0
     # compute the loss over the entire test set
-    for iteration, (x, label) in enumerate(test_data_loader):
-        target_x, label = x.to(device), label.to(device)
+    for iteration, (x, c) in enumerate(test_data_loader):
+        target_x, c = x.to(device), c.to(device)
         batch_size = target_x.size(0)
         with torch.no_grad():
-            pred_x = model(label)
-            target_x = target_x.view(batch_size, -1)
+            pred_x = model(c)
             loss = loss_fn(pred_x, target_x)
             batch_loss = loss.item() * batch_size
             test_loss += batch_loss
@@ -130,9 +111,18 @@ def test(model, test_data_loader,
     return test_loss
      
 def experiment():
-    # parse config file
-    config_file_path = os.path.join(mnist_path, "mnist_baseline_config.yaml")
-    variant = parse_config(config_file_path)
+    # set variables
+    variant = { "base_env": "cheetah_dir",  # ['cheetah_dir', 'cheetah_vel', 'ant_dir', 'ML1-pick-place-v2']
+                "algorithm_name": "baseline",
+                "seed": 1,
+                "device": "cuda:1",
+                "hidden_dim": 512,
+                "num_epochs": 40,
+                "batch_size": 256,
+                "learning_rate": 0.001,
+                "test_frequency": 5 # test every n epoch
+                }
+    
     # print out variant
     print("=========================== variant ==================================")
     print(variant)
@@ -152,7 +142,7 @@ def experiment():
 
 
     # create regression net
-    model = DeterministicImageDecoder(num_labels=10, 
+    model = DeterministicDecoder(num_labels=10, 
                     image_height=28, image_width=28,
                     hidden_dim=int(variant['hidden_dim']))
     model.to(device)
@@ -203,11 +193,6 @@ def experiment():
                            experiment_folder=experiment_folder)
                 print("Better performance achieved: %f, model saved"%(best_test_loss))
             
-            # generate data and save
-            image_labels = torch.arange(0, 10).long().unsqueeze(1).to(device)
-            generated_x = model.generate_x(image_labels)
-            save_generated_images(image_labels, generated_x, epoch, experiment_folder)
-    
     # plot and save test elbo during the training process
     plot_llk(test_loss_list, test_epoch_list, 
              mnist_figure_path, experiment_folder,

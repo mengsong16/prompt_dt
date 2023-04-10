@@ -5,7 +5,7 @@ base_env: 'cheetah_vel' # ['cheetah_dir', 'cheetah_vel', 'ant_dir', 'ML1-pick-pl
 project_name: 'prompt-dt-calibrated'
 
 # suffix to group name
-suffix: "-heavy_encoder" #"-5_tokens" #"-1_step"
+suffix: "" #"-5_tokens" #"-1_step"
 
 # dataset
 train_dataset_mode: 'expert'
