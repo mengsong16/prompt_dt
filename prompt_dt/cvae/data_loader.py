@@ -46,17 +46,16 @@ class GoalStateDataset(Dataset):
     # sample = {'goal': goal, 'goal_state': goal_state}
     def __getitem__(self, idx):
         if torch.is_tensor(idx):
-            idx = idx.tolist()[0]
-        
-        # randomly pick one sample from the list
-        numpy_sample = random.choice(self.goal_state_list)
+            idx = idx.item()
 
-        sample = {
-            'goal': torch.tensor(numpy_sample["goal"], dtype=torch.float), 
-            'goal_state': torch.tensor(numpy_sample["goal_state"], dtype=torch.float) 
-        }  
-        
-        return sample
+        numpy_sample = self.goal_state_list[idx]
+
+        # [goal_dim]
+        goal =  torch.from_numpy(numpy_sample["goal"]).to(dtype=torch.float32)
+        # [state_dim]
+        goal_state = torch.from_numpy(numpy_sample["goal_state"]).to(dtype=torch.float32) 
+
+        return goal, goal_state
     
 def get_train_data_loader(variant):
     dataset = GoalStateDataset(variant['base_env'], split="train")
@@ -79,3 +78,19 @@ def get_test_data_loader(variant):
         num_workers=0)
     
     return data_loader
+
+if __name__ == "__main__":
+    # ["cheetah_dir", "cheetah_vel", "ant_dir", "ML1-pick-place-v2"]
+    batch_size = 256
+    variant = {"base_env": "cheetah_vel", "batch_size": batch_size}
+    data_loader = get_train_data_loader(variant)
+    print("The number of data points: ", len(data_loader.dataset))
+    print("Batch size: ", batch_size)
+    print("The number of batches: ", len(data_loader))
+
+    for iteration, (goals, goal_states) in enumerate(data_loader):
+        print("Iteration: ", iteration)
+        print(goals.size()) # [batch_size, goal_dim]
+        print(goal_states.size()) # [batch_size, state_dim]
+        print("-"*80)
+    

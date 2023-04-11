@@ -181,6 +181,7 @@ def experiment_mix_env(config_filename, mode):
 
     print("======> Train and test trajectories processed ")
 
+
     return_info = load_return_info(base_env, verbose=False)
     print("======> Return information loaded")
 
@@ -443,10 +444,10 @@ def experiment_mix_env(config_filename, mode):
         exit()
         
 if __name__ == '__main__':
-    #experiment_mix_env(config_filename="cheetah_dir.yaml", mode="train") # mode: ['train', 'eval', 'demo']
+    experiment_mix_env(config_filename="cheetah_dir.yaml", mode="train") # mode: ['train', 'eval', 'demo']
     #experiment_mix_env(config_filename="cheetah_vel.yaml", mode="train")
     #experiment_mix_env(config_filename="ant_dir.yaml", mode="train")
-    experiment_mix_env(config_filename="ML1-pick-place-v2.yaml", mode="train")
+    #experiment_mix_env(config_filename="ML1-pick-place-v2.yaml", mode="train")
     
     #experiment_mix_env(config_filename="ML1-pick-place-v2.yaml", mode="demo")
     #experiment_mix_env(config_filename="ant_dir.yaml", mode="demo")
