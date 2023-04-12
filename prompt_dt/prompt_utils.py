@@ -107,10 +107,17 @@ def get_env_list(env_name_list, config_save_path, device, seed):
 
 # return environment goal as a numpy array
 def get_env_goal(env_name, env):
-    if "ML1" in env_name:
-        env_goal = env.goal
-    else:
+    if "ML1-pick-place-v2" in env_name:
+        env_goal = env._target_pos
+    elif "cheetah_dir" in env_name:
+        env_goal = env._goal_dir
+    elif "cheetah_vel" in env_name:
+        env_goal = env._goal_vel
+    elif "ant_dir" in env_name:
         env_goal = env._goal
+    else:
+        print("Error: undefined environment name")
+        exit()
     
     env_goal_array = np.array(env_goal)
     # env_goal is a single number

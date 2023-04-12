@@ -113,7 +113,7 @@ def test(model, test_data_loader,
 def experiment():
     # set variables
     variant = { "base_env": "cheetah_dir",  # ['cheetah_dir', 'cheetah_vel', 'ant_dir', 'ML1-pick-place-v2']
-                "algorithm_name": "baseline",
+                "algorithm_name": "goal_state_regression",
                 "seed": 1,
                 "device": "cuda:1",
                 "hidden_dim": 512,

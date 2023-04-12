@@ -82,7 +82,7 @@ def get_test_data_loader(variant):
 if __name__ == "__main__":
     # ["cheetah_dir", "cheetah_vel", "ant_dir", "ML1-pick-place-v2"]
     batch_size = 256
-    variant = {"base_env": "cheetah_vel", "batch_size": batch_size}
+    variant = {"base_env": "ML1-pick-place-v2", "batch_size": batch_size}
     data_loader = get_train_data_loader(variant)
     print("The number of data points: ", len(data_loader.dataset))
     print("Batch size: ", batch_size)
@@ -92,5 +92,8 @@ if __name__ == "__main__":
         print("Iteration: ", iteration)
         print(goals.size()) # [batch_size, goal_dim]
         print(goal_states.size()) # [batch_size, state_dim]
+        #print(goals[0,:])
+        #print(goal_states[0,:])
+        print(goals)
         print("-"*80)
     
