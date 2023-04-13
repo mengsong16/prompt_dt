@@ -76,6 +76,12 @@ def set_up_experiment_name(seed, base_env, num_train_env,
             suffix += "-random_crop"
         elif variant['traj_prompt']['crop_method'] == 'last_step':
             suffix += "-last_step"
+    elif prompt_method == "goal_learned_prompt" or prompt_method == "pure_learned_prompt":
+        token_num = int(variant['learned_prompt']['n_tokens'])
+        if token_num == 1:
+            suffix += "-%d_token"%token_num
+        elif token_num > 1:
+            suffix += "-%d_tokens"%token_num
     
     suffix += variant['suffix']
 
@@ -445,9 +451,9 @@ def experiment_mix_env(config_filename, mode):
         
 if __name__ == '__main__':
     #experiment_mix_env(config_filename="cheetah_dir.yaml", mode="train") # mode: ['train', 'eval', 'demo']
-    #experiment_mix_env(config_filename="cheetah_vel.yaml", mode="train")
+    experiment_mix_env(config_filename="cheetah_vel.yaml", mode="train")
     #experiment_mix_env(config_filename="ant_dir.yaml", mode="train")
-    experiment_mix_env(config_filename="ML1-pick-place-v2.yaml", mode="train")
+    #experiment_mix_env(config_filename="ML1-pick-place-v2.yaml", mode="train")
     
     #experiment_mix_env(config_filename="ML1-pick-place-v2.yaml", mode="demo")
     #experiment_mix_env(config_filename="ant_dir.yaml", mode="demo")
