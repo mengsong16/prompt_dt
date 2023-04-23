@@ -109,16 +109,21 @@ def get_env_list(env_name_list, config_save_path, device, seed):
 def get_env_goal(env_name, env):
     if "ML1-pick-place-v2" in env_name:
         env_goal = env._target_pos
+    elif "ML10-v2" in env_name:
+        env_goal = env._target_pos
     elif "cheetah_dir" in env_name:
         env_goal = env._goal_dir
     elif "cheetah_vel" in env_name:
         env_goal = env._goal_vel
     elif "ant_dir" in env_name:
         env_goal = env._goal
+    elif "walker_params" in env_name:
+        env_goal = env.get_goal_vector()
     else:
         print("Error: undefined environment name")
         exit()
     
+    # convert from list or number to numpy array
     env_goal_array = np.array(env_goal)
     # env_goal is a single number
     if not env_goal_array.shape:

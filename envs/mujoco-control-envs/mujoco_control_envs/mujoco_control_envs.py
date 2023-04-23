@@ -148,76 +148,17 @@ class WalkerRandParamsWrappedEnv(WalkerRandParamsWrappedEnv_):
         self._goal = idx
         self.set_task(self._task)
         self.reset()
-
-
-class ML45Env(object):
-    def __init__(self, include_goal: bool = False):
-        self.n_tasks = 50
-        self.tasks = list(HARD_MODE_ARGS_KWARGS['train'].keys()) + list(HARD_MODE_ARGS_KWARGS['test'].keys())
-
-        self._max_episode_steps = 150
-
-        self.include_goal = include_goal
-        self._task_idx = None
-        self._env = None
-        self._envs = []
-
-        _cls_dict = {**HARD_MODE_CLS_DICT['train'], **HARD_MODE_CLS_DICT['test']}
-        _args_kwargs = {**HARD_MODE_ARGS_KWARGS['train'], **HARD_MODE_ARGS_KWARGS['test']}
-        for idx in range(self.n_tasks):
-            task = self.tasks[idx]
-            args_kwargs = _args_kwargs[task]
-            if idx == 28 or idx == 29:
-                args_kwargs['kwargs']['obs_type'] = 'plain'
-                args_kwargs['kwargs']['random_init'] = False
-            else:
-                args_kwargs['kwargs']['obs_type'] = 'with_goal'
-            args_kwargs['task'] = task
-            env = _cls_dict[task](*args_kwargs['args'], **args_kwargs['kwargs'])
-            self._envs.append(TimeLimit(env, max_episode_steps=self._max_episode_steps))
+    
+    # get goal vector as a list
+    def get_goal_vector(self):
+        goal_dict = self.cur_params
+        goal_vector = []
+        # para_value is numpy array
+        for para_key, para_value in goal_dict.items():
+            cur_goal_vec = para_value.flatten().tolist()
+            goal_vector.extend(cur_goal_vec)
         
-        self.set_task_idx(0)
+        return goal_vector
 
-    @property
-    def observation_space(self):
-        space = self._env.observation_space
-        if self.include_goal:
-            space = Box(low=space.low[0], high=space.high[0], shape=(space.shape[0] + len(self.tasks),))
-        return space
 
-    def reset(self):
-        obs = self._env.reset()
-        if self.include_goal:
-            one_hot = np.zeros(len(self.tasks), dtype=np.float32)
-            one_hot[self._task_idx] = 1.0
-            obs = np.concatenate([obs, one_hot])
-        return obs
 
-    def step(self, action):
-        o, r, d, i = self._env.step(action)
-        if self.include_goal:
-            one_hot = np.zeros(len(self.tasks), dtype=np.float32)
-            one_hot[self._task_idx] = 1.0
-            o = np.concatenate([o, one_hot])
-        return o, r, d, i
-
-    def set_task_idx(self, idx):
-        self._task_idx = idx
-        self._env = self._envs[idx]
-
-    def __getattribute__(self, name):
-        '''
-        If we try to access attributes that only exist in the env, return the
-        env implementation.
-        '''
-        try:
-            return object.__getattribute__(self, name)
-        except AttributeError as e:
-            e_ = e
-            try:
-                return object.__getattribute__(self._env, name)
-            except AttributeError as env_exception:
-                pass
-            except Exception as env_exception:
-                e_ = env_exception
-        raise e_

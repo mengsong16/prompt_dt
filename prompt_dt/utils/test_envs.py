@@ -121,22 +121,107 @@ def test_envs(render):
 
 def test_walker():
     env = WalkerRandParamsWrappedEnv(n_tasks=50)
-    # print goal parameters
-    print(env.tasks[0])
+    #print(env.tasks[0])
     
     for task_id in range(50):
-        env.reset()
-        env.set_task_idx(task_id)
+        # env.reset()
+        env.set_task_idx(task_id) # already call env.reset here
+        #env.reset_task(task_id)
+
+        # print goal parameters
+        # print("="*80)
+        # print(env._task)
+        # print("-"*80)
+        # print(env.cur_params)
+        # print("-"*80)
+        # print(env.get_goal_vector()) # 65
+        # print("="*80)
+
+        # print max episode steps
+        max_episode_steps = env._max_episode_steps
+        print('-----------------------------')
+        print("Max episode steps: ", max_episode_steps)
+        print("Observation space: ", env.observation_space)
+        print("Action space: ", env.action_space)
+        #print("Goal: ", get_env_goal(env_name, env))
+        print('-----------------------------')
+        #print("="*80)
+        #print(env.unwrapped._max_episode_steps)
+        #print(env.spec._max_episode_steps)
+
         
-        # test in current env for 100 steps
-        for step in range(100):
-            env.render()
+        # test in current env for N steps
+        for step in range(max_episode_steps):
+            #env.render()
             # take a random action
             env.step(env.action_space.sample())
-            print(step)  
+            #print(step)  
 
+def test_ml10():
+    #benchmark = metaworld.BENCHMARK(seed=0)
+    ml10 = metaworld.ML10() # Construct the benchmark, sampling tasks
+
+    # 10 train envs
+    train_envs = []
+    train_env_names = []
+    train_tasks = [] # a list of list
+    for name, env_cls in ml10.train_classes.items():
+        env = env_cls()
+
+        sub_tasks = [task for task in ml10.train_tasks
+                    if task.env_name == name]
+        train_tasks.append(sub_tasks)
+        train_envs.append(env)
+        train_env_names.append(name)
+    
+    assert len(train_envs) == len(train_env_names) == len(train_tasks), "ML10: train envs, train_env_names, train_tasks should have the same length"
+    print("="*80)
+    
+    for i, env_name in enumerate(train_env_names):
+        
+        env = train_envs[i]
+        subtasks = train_tasks[i]
+        # randomly sample a subtask from the subtask list
+        subtask = random.choice(subtasks)
+        # Associate env with the task
+        env.set_task(subtask)
+
+        print('-----------------------------')
+        print("Testing ", env_name)
+        #print("Max episode steps: ", env._max_episode_steps)
+        print("Max episode steps: ", 500)
+        print("Observation space: ", env.observation_space)
+        print("Action space: ", env.action_space)
+        #print("Goal: ", get_env_goal(env_name, env))
+        print('-----------------------------')
+
+        # test in current env for N steps
+        #max_episode_steps
+        obs = env.reset()
+        for step in range(100):
+            # take a random action
+            obs, reward, done, info = env.step(env.action_space.sample())
+            
+            # if step == 1:
+            #     print(obs)
+
+            # assert goal is hidden
+            assert (obs[-3:] == np.zeros(3)).all() 
+            
+            #env.render()
+
+    # 5 test envs
+    # testing_envs = []
+    # for name, env_cls in ml10.test_classes.items():
+    #     env = env_cls()
+    #     print(name)
+    #     # task = random.choice([task for task in ml10.test_tasks
+    #     #                         if task.env_name == name])
+    #     # env.set_task(task)
+    #     testing_envs.append(env)
 
 if __name__ == '__main__':
     #test_envs(render=False)
-    test_walker()
+    #test_walker()
+    test_ml10()
 

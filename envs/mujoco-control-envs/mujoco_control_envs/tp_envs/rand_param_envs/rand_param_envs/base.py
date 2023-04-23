@@ -49,6 +49,7 @@ class MetaEnv(Env):
         """
         pass
 
+# note that we are not using MujocoEnv in local gym
 class RandomEnv(MetaEnv, MujocoEnv):
     """
     This class provides functionality for randomizing the physical parameters of a mujoco model
@@ -62,6 +63,7 @@ class RandomEnv(MetaEnv, MujocoEnv):
 
     def __init__(self, log_scale_limit, file_name, *args, rand_params=RAND_PARAMS, **kwargs):
         MujocoEnv.__init__(self, file_name, 4)
+        
         assert set(rand_params) <= set(self.RAND_PARAMS_EXTENDED), \
             "rand_params must be a subset of " + str(self.RAND_PARAMS_EXTENDED)
         self.log_scale_limit = log_scale_limit            
