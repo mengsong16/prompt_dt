@@ -7,7 +7,7 @@ from prompt_dt.utils.path import *
 from prompt_dt.prompt_utils import get_env_goal
 
 # for mujoco tasks
-from mujoco_control_envs.mujoco_control_envs import HalfCheetahDirEnv, HalfCheetahVelEnv, AntDirEnv
+from mujoco_control_envs.mujoco_control_envs import HalfCheetahDirEnv, HalfCheetahVelEnv, AntDirEnv, WalkerRandParamsWrappedEnv
 # for metaworld
 import metaworld
 from metaworld.envs import (ALL_V2_ENVIRONMENTS_GOAL_OBSERVABLE,
@@ -119,7 +119,24 @@ def test_envs(render):
     print("Goal: ", get_env_goal(env_name, env))
     print('-----------------------------')
 
+def test_walker():
+    env = WalkerRandParamsWrappedEnv(n_tasks=50)
+    # print goal parameters
+    print(env.tasks[0])
+    
+    for task_id in range(50):
+        env.reset()
+        env.set_task_idx(task_id)
+        
+        # test in current env for 100 steps
+        for step in range(100):
+            env.render()
+            # take a random action
+            env.step(env.action_space.sample())
+            print(step)  
+
 
 if __name__ == '__main__':
-    test_envs(render=False)
+    #test_envs(render=False)
+    test_walker()
 
