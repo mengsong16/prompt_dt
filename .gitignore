@@ -7,6 +7,7 @@
 **/envs/jacopinpad
 **/envs/mujoco-control-envs/mujoco_control_envs/tp_envs/rand_param_envs/rand_param_envs/gym
 **/envs/mujoco-control-envs/mujoco_control_envs/tp_envs/rand_param_envs/rand_param_envs/mujoco_py
+**/envs/metaworld
 **/task_config/
 **/figures/
 **__
