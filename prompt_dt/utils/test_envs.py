@@ -119,6 +119,109 @@ def test_envs(render):
     print("Goal: ", get_env_goal(env_name, env))
     print('-----------------------------')
 
+def print_type_shape(traj):
+    for key in traj.keys():
+        print("-"*80)
+        print(key)
+        print(traj[key].dtype)
+        print(traj[key].shape)
+
+def check_expert_trajectory():
+    # env_name = 'cheetah_vel-0'
+    # base_env = 'cheetah_vel'
+
+    env_name = 'ML1-pick-place-v2-0'
+    base_env = 'ML1-pick-place-v2'
+    env = create_env(env_name=env_name, config_save_path=task_config_path)
+    if "ML1" in env_name:
+        max_ep_len = 500
+    else:
+        max_ep_len = 200
+
+    # load expert trajectory
+    dataset_path = data_path+f'/{base_env}/{env_name}-expert.pkl'
+    with open(dataset_path, 'rb') as f:
+        expert_trajectories = pickle.load(f)
+
+    expert_traj = expert_trajectories[0]
+
+    print("================= expert trajectory ==================")
+    print_type_shape(expert_traj)
+
+
+    env_traj = { 'observations': [], 'actions': [], 'rewards': [], 'terminals': [], 'success': []}
+
+    obs = env.reset()
+    env_traj['observations'].append(obs)
+
+    for i in range(max_ep_len): 
+        action = expert_traj["actions"][i]
+        env_traj['actions'].append(action)
+
+        obs, reward, done, info = env.step(action)
+        env_traj['observations'].append(obs)
+        env_traj['rewards'].append(reward)
+        env_traj['terminals'].append(done)
+        env_traj['success'].append(info['success'])
+
+        if done: 
+            break
+                    
+    print('Total timesteps: %d'%(i+1))
+
+    # convert from list to numpy array for each value
+    for key in env_traj.keys():
+        env_traj[key] = np.array(env_traj[key])
+    
+    print("================= environment trajectory ==================")
+    print_type_shape(env_traj)
+
+
+    print("================= Compare two trajectories ==================")
+    print("================= Compare s0 ==================")
+    print(env_traj["observations"][0])
+    print('-'*80)
+    print(expert_traj["observations"][0])
+    print("================= Compare sT ==================")
+    print(env_traj["observations"][-1])
+    print('-'*80)
+    print(env_traj["observations"][-2])
+    print('-'*80)
+    print(expert_traj["observations"][-1])
+    print("================= Compare r0 ==================")
+    print(env_traj["rewards"][0])
+    print('-'*80)
+    print(env_traj["rewards"][0])
+    print("================= Compare rT ==================")
+    print(env_traj["rewards"][-1])
+    print('-'*80)
+    print(env_traj["rewards"][-1])
+    print("================= Compare d0 ==================")
+    print(env_traj["terminals"][0])
+    print('-'*80)
+    print(env_traj["terminals"][0])
+    print("================= Compare dT ==================")
+    print(env_traj["terminals"][-1])
+    print('-'*80)
+    print(env_traj["terminals"][-1])
+    print("================= Compare a0 ==================")
+    print(env_traj["actions"][0])
+    print('-'*80)
+    print(env_traj["actions"][0])
+    print("================= Compare aT ==================")
+    print(env_traj["actions"][-1])
+    print('-'*80)
+    print(env_traj["actions"][-1])
+    print("================= Compare info0 ==================")
+    print(env_traj["success"][0])
+    print('-'*80)
+    print(env_traj["success"][0])
+    print("================= Compare infoT ==================")
+    print(env_traj["success"][-1])
+    print('-'*80)
+    print(env_traj["success"][-1])
+    
+
 def test_walker():
     env = WalkerRandParamsWrappedEnv(n_tasks=50)
     #print(env.tasks[0])
@@ -223,5 +326,6 @@ def test_ml10():
 if __name__ == '__main__':
     #test_envs(render=False)
     #test_walker()
-    test_ml10()
+    #test_ml10()
+    check_expert_trajectory()
 

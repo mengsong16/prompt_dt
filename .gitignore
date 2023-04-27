@@ -5,7 +5,6 @@
 **/demo/
 **/log/
 **/envs/jacopinpad
-**/envs/metaworld
 **/envs/mujoco-control-envs/mujoco_control_envs/tp_envs/rand_param_envs/rand_param_envs/gym
 **/envs/mujoco-control-envs/mujoco_control_envs/tp_envs/rand_param_envs/rand_param_envs/mujoco_py
 **/task_config/

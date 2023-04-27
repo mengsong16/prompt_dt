@@ -107,9 +107,9 @@ def get_env_list(env_name_list, config_save_path, device, seed):
 
 # return environment goal as a numpy array
 def get_env_goal(env_name, env):
-    if "ML1-pick-place-v2" in env_name:
+    if "ML1" in env_name:
         env_goal = env._target_pos
-    elif "ML10-v2" in env_name:
+    elif "ML10" in env_name:
         env_goal = env._target_pos
     elif "cheetah_dir" in env_name:
         env_goal = env._goal_dir
