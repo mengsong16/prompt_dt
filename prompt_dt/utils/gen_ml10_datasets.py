@@ -50,21 +50,25 @@ def generate_one_subtask(env, policy, env_name, subtask_idx, input_traj_per_subt
         obs = env.reset()
         cur_traj['observations'].append(obs)
         
-        for step in range(500): # max path length from https://github.com/Farama-Foundation/Metaworld/blob/master/metaworld/envs/mujoco/mujoco_env.py
-            
+        for step in range(env.max_path_length): # max path length = 500 from https://github.com/Farama-Foundation/Metaworld/blob/master/metaworld/envs/mujoco/mujoco_env.py
+            # no noise added to the action
             action = policy.get_action(obs)
             obs, reward, done, info = env.step(action)
+            success = info['success']
+            # modify done if succeed
+            if bool(success):
+                done = True
 
             cur_traj['observations'].append(obs)
             cur_traj['actions'].append(action)
             cur_traj['rewards'].append(reward)
             cur_traj['terminals'].append(done) # won't be used
-            cur_traj['success'].append(info['success']) # won't be used
+            cur_traj['success'].append(success) # won't be used
         
 
             if done:
                 break
-        
+            
         # throw away s_T
         cur_traj['observations'] = cur_traj['observations'][:-1]
 
@@ -74,13 +78,14 @@ def generate_one_subtask(env, policy, env_name, subtask_idx, input_traj_per_subt
         for key in cur_traj.keys():
             cur_traj[key] = np.array(cur_traj[key])
         
-        # add to the pool
+        # check unsuccessful trajectories
         if cur_traj['terminals'][-1] == False or bool(cur_traj['success'][-1]) == False:
             print(f"{env_name}-{subtask_idx}-{traj_ind}: Unsuccessful trajectory!")
             print("Trajectory length: ", cur_traj['actions'].shape[0])
             print("Done: ", cur_traj['terminals'][-1])
             print("Success: ", cur_traj['success'][-1])
         
+        # add to the pool
         input_trajectories.append(cur_traj)
 
     # sample prompt trajectories
@@ -109,18 +114,15 @@ def generate_one_subtask(env, policy, env_name, subtask_idx, input_traj_per_subt
         print("Total prompt trajectories: ", len(prompt_trajectories))
         print("======> Saved input trajectories to ", prompt_traj_file_path)
     
-def generate_ml10():
-    # seed everything
-    seed_other(seed=1)
+def generate_ml10(seed=1):
+    # seed everything except environments
+    seed_other(seed=seed)
 
-    #input_traj_per_subtask = 100
-    #prompt_traj_per_subtask = 5
+    input_traj_per_subtask = 100
+    prompt_traj_per_subtask = 5
 
-    input_traj_per_subtask = 1
-    prompt_traj_per_subtask = 1
-
-    #benchmark = metaworld.BENCHMARK(seed=0)
-    ml10 = metaworld.ML10(seed=1) # Construct the benchmark, sampling tasks
+    # Construct and seed the benchmark, sampling tasks
+    ml10 = metaworld.ML10(seed=seed) 
 
     # 10 train envs
     train_envs = []
@@ -146,11 +148,12 @@ def generate_ml10():
 
         # loop over sub env
         for subtask_idx in range(len(subtasks)):
-        #for subtask_idx in range(1):
             # Associate env with the subtask
             env.set_task(subtasks[subtask_idx])
             # set goal as observable
             env._partially_observable = False
+            env._freeze_rand_vec = False
+            env._set_task_called = True
             # generate input trajectories and prompt trajectories
             generate_one_subtask(env, policy, env_name, subtask_idx, input_traj_per_subtask, prompt_traj_per_subtask)
 
@@ -255,6 +258,8 @@ def test_scripted_policy():
 
     env.set_task(sub_tasks[0])
     env._partially_observable = False
+    env._freeze_rand_vec = False
+    env._set_task_called = True
 
     policy = SawyerReachV2Policy()
     summary = trajectory_summary(env, policy, act_noise_pct=0, render=False)
