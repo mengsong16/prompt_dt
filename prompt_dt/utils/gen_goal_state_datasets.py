@@ -45,14 +45,14 @@ def gen_goal_state_datasets(seed=1):
             # loat env names in train/test split
             env_name_list = load_env_name_list(base_env, split)
             for traj_type in traj_types:
-                gen_one_goal_state_dataset(base_env, split, env_name_list, traj_type, seed)
+                gen_one_goal_state_dataset(base_env, split, env_name_list, traj_type)
     
 # get goal-goal_state dataset for one basic environment
-def get_goal_goal_state_list(env_name_list, data_path, dataset_mode, base_env, traj_type, seed):
+def get_goal_goal_state_list(env_name_list, data_path, dataset_mode, base_env, traj_type):
     goal_goal_state_list = [] 
     for env_name in env_name_list:
         # create env
-        env, _, _, _ = gen_env(env_name=env_name, config_save_path=task_config_path, seed=seed)
+        env, _, _, _ = gen_env(env_name=env_name, config_save_path=task_config_path)
         # goal: (goal_dim, )
         env_goal = get_env_goal(env_name, env)
 
@@ -75,11 +75,11 @@ def get_goal_goal_state_list(env_name_list, data_path, dataset_mode, base_env, t
 # dataset_mode: ["expert"] 
 # traj_type: ["input", "prompt"]
 # Note that other modes are not provided in the data)
-def gen_one_goal_state_dataset(base_env, split, env_name_list, traj_type, seed,
+def gen_one_goal_state_dataset(base_env, split, env_name_list, traj_type,
                                dataset_mode="expert"):
     
     # Get goal states and goals from trajectories and environments
-    goal_goal_state_list = get_goal_goal_state_list(env_name_list, data_path, dataset_mode, base_env, traj_type, seed)
+    goal_goal_state_list = get_goal_goal_state_list(env_name_list, data_path, dataset_mode, base_env, traj_type)
     print("======> Loaded %d goal states from %s %s %s %s"%(len(goal_goal_state_list), base_env, dataset_mode, split, traj_type))
     
     

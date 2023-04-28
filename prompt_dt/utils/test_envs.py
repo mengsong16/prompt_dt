@@ -15,7 +15,7 @@ from metaworld.envs import (ALL_V2_ENVIRONMENTS_GOAL_OBSERVABLE,
 
 
 # create a single environment with reward scale, maximum episode length, return target
-def create_env(env_name, config_save_path, seed=1):
+def create_env(env_name, config_save_path):
     if 'cheetah_dir' in env_name:
         # include_goal = False: do not include goal in observations
         if '0' in env_name:  # direction 1
@@ -50,16 +50,42 @@ def create_env(env_name, config_save_path, seed=1):
         # env._goal = 1.2033605945679715
         # include_goal = False: do not include goal in observations
         env = AntDirEnv(tasks, len(tasks), include_goal = False)
-        
+    elif 'walker_params' in env_name:
+        env = WalkerRandParamsWrappedEnv(n_tasks=50)
+        env.set_task_idx(0)
     elif 'ML1-' in env_name: # metaworld ML1
         task_name = '-'.join(env_name.split('-')[1:-1])
-        ml1 = metaworld.ML1(task_name, seed=seed) # construct the benchmark, sampling tasks
+        ml1 = metaworld.ML1(task_name, seed=1) # construct the benchmark, sampling tasks
         env = ml1.train_classes[task_name]()  # create an environment with task
         task_idx = int(env_name.split('-')[-1])
         task = ml1.train_tasks[task_idx]
         env.set_task(task)  # set task
         # print(env.goal) [0.1 0.8 0.2]
+    elif 'ML10-' in env_name: # metaworld ML10
+        task_name = '-'.join(env_name.split('-')[1:-1])
+        task_idx = int(env_name.split('-')[-1])
+
+        # construct the benchmark
+        # note that this seed must be 1 which is used to generate the dataset
+        ml10 = metaworld.ML10(seed=1) 
+        # construct the environment
+        env = ml10.train_classes[task_name]()
+        # get subtasks
+        # sub_tasks = [task for task in ml10.train_tasks
+        #             if task.env_name == task_name]
+        # get specific task
+        #task = sub_tasks[task_idx]
+        task_path = os.path.join(config_save_path, f'ML10-{task_name}', f'config-ML10-{task_name}-task{task_idx}.pkl')
         
+        with open(task_path, 'rb') as f:
+            task = pickle.load(f)
+
+        # set task
+        env.set_task(task)
+
+        # env._partially_observable = False
+        # env._freeze_rand_vec = False
+        # env._set_task_called = True    
     else:
         raise NotImplementedError
     
@@ -77,11 +103,11 @@ def test_envs(render):
     #base_env = 'cheetah_vel' # ['cheetah_dir', 'cheetah_vel', 'ant_dir', 'ML1-pick-place-v2']
     #train_env_name_list, test_env_name_list = load_train_test_env_name_list(base_env)
 
-    # 'ant_dir-0', 'cheetah_vel-0', 'cheetah_dir-0', 'ML1-pick-place-v2-0'
-    env_name = 'cheetah_vel-0'
+    # 'ant_dir-0', 'cheetah_vel-0', 'cheetah_dir-0', 'ML1-pick-place-v2-0', "ML10-pick-place-v2-0"
+    env_name = 'ML10-pick-place-v2-0'
     env = create_env(env_name=env_name, config_save_path=task_config_path)
-    if "ML1" in env_name:
-        max_ep_len = 500
+    if "ML1" in env_name or "ML10" in env_name:
+        max_ep_len = env.max_path_length #500
     else:
         max_ep_len = 200
 
@@ -130,11 +156,15 @@ def check_expert_trajectory():
     # env_name = 'cheetah_vel-0'
     # base_env = 'cheetah_vel'
 
-    env_name = 'ML1-pick-place-v2-0'
-    base_env = 'ML1-pick-place-v2'
+    # env_name = 'ML1-pick-place-v2-0'
+    # base_env = 'ML1-pick-place-v2'
+
+    env_name = 'ML10-reach-v2-2'
+    base_env = 'ML10-reach-v2'
+
     env = create_env(env_name=env_name, config_save_path=task_config_path)
-    if "ML1" in env_name:
-        max_ep_len = 500
+    if "ML1" in env_name or "ML10" in env_name:
+        max_ep_len = env.max_path_length #500
     else:
         max_ep_len = 200
 
@@ -154,7 +184,8 @@ def check_expert_trajectory():
     obs = env.reset()
     env_traj['observations'].append(obs)
 
-    for i in range(max_ep_len): 
+    #for i in range(max_ep_len): 
+    for i in range(len(expert_traj["actions"])):
         action = expert_traj["actions"][i]
         env_traj['actions'].append(action)
 
@@ -182,6 +213,7 @@ def check_expert_trajectory():
     print(env_traj["observations"][0])
     print('-'*80)
     print(expert_traj["observations"][0])
+    #exit()
     print("================= Compare sT ==================")
     print(env_traj["observations"][-1])
     print('-'*80)
@@ -255,14 +287,13 @@ def test_walker():
         
         # test in current env for N steps
         for step in range(max_episode_steps):
-            #env.render()
+            env.render()
             # take a random action
             env.step(env.action_space.sample())
             #print(step)  
 
 def test_ml10():
-    #benchmark = metaworld.BENCHMARK(seed=0)
-    ml10 = metaworld.ML10() # Construct the benchmark, sampling tasks
+    ml10 = metaworld.ML10(seed=1) # Construct the benchmark, sampling tasks
 
     # 10 train envs
     train_envs = []
@@ -292,7 +323,7 @@ def test_ml10():
         print('-----------------------------')
         print("Testing ", env_name)
         #print("Max episode steps: ", env._max_episode_steps)
-        print("Max episode steps: ", 500)
+        print("Max episode steps: ", env.max_path_length)
         print("Observation space: ", env.observation_space)
         print("Action space: ", env.action_space)
         #print("Goal: ", get_env_goal(env_name, env))
@@ -301,7 +332,7 @@ def test_ml10():
         # test in current env for N steps
         #max_episode_steps
         obs = env.reset()
-        for step in range(100):
+        for step in range(env.max_path_length):
             # take a random action
             obs, reward, done, info = env.step(env.action_space.sample())
             
@@ -311,7 +342,7 @@ def test_ml10():
             # assert goal is hidden
             assert (obs[-3:] == np.zeros(3)).all() 
             
-            #env.render()
+            env.render()
 
     # 5 test envs
     # testing_envs = []
@@ -323,9 +354,114 @@ def test_ml10():
     #     # env.set_task(task)
     #     testing_envs.append(env)
 
+def test_ml10_name():
+    ml10 = metaworld.ML10(seed=1) # Construct the benchmark, sampling tasks
+
+    # 10 train envs
+    train_envs = []
+    train_env_names = []
+    train_task_names = [] # a list of list
+    for name, env_cls in ml10.train_classes.items():
+        env = env_cls()
+
+        sub_task_names = []
+        for task in ml10.train_tasks:
+            # task.env_name, task.data
+            if task.env_name == name:
+                sub_task_names.append(task.env_name)
+
+        train_task_names.append(sub_task_names)
+        train_envs.append(env)
+        train_env_names.append(name)
+    
+    assert len(train_envs) == len(train_env_names) == len(train_task_names), "ML10: train envs, train_env_names, train_tasks should have the same length"
+    
+    print("="*80)
+    print(train_env_names[0])
+    print(train_task_names[0])
+
+def visualize_expert_trajectory():
+    # env_name = 'cheetah_vel-0'
+    # base_env = 'cheetah_vel'
+
+    # env_name = 'ML1-pick-place-v2-1'
+    # base_env = 'ML1-pick-place-v2'
+
+    # env_name = 'ML10-pick-place-v2-1'
+    # base_env = 'ML10-pick-place-v2'
+
+    env_name = 'ML10-reach-v2-30'
+    base_env = 'ML10-reach-v2'
+
+    env = create_env(env_name=env_name, config_save_path=task_config_path)
+    if "ML1" in env_name or "ML10" in env_name:
+        max_ep_len = env.max_path_length #500
+    else:
+        max_ep_len = 200
+
+    # load expert trajectory
+    dataset_path = data_path+f'/{base_env}/{env_name}-expert.pkl'
+    with open(dataset_path, 'rb') as f:
+        expert_trajectories = pickle.load(f)
+
+    expert_traj = expert_trajectories[0]
+
+    print("================= expert trajectory ==================")
+    
+    while True:
+        # env.reset()
+        # env.reset_model()
+        obs = env.reset()
+        #for i in range(max_ep_len): 
+        for i in range(len(expert_traj["actions"])): 
+            action = expert_traj["actions"][i]
+            #print(action)
+            obs, reward, done, info = env.step(action)
+            success = info['success']
+            print(success)
+            env.render()
+            
+            if done: 
+                break
+                        
+        print('Total timesteps: %d'%(i+1))
+        break
+
+def check_max_ep_len():
+    base_env = 'ML1-pick-place-v2' #100
+    #base_env = 'ML1-reach-v2' #500
+    #base_env = 'ML1-push-v2' #500
+    #base_env = 'ML1-door-open-v2' #500
+    #base_env = 'ML1-drawer-close-v2' #500
+    #base_env = 'ML1-button-press-topdown-v2' #500
+    #base_env = 'ML1-peg-insert-side-v2' #500
+    #base_env = 'ML1-window-open-v2' #500
+    #base_env = 'ML1-sweep-v2' #500
+    #base_env = 'ML1-basketball-v2' #500
+
+    #base_env = 'cheetah_dir' #200
+    #base_env = 'cheetah_vel' #200
+    #base_env = 'ant_dir' #200
+    #base_env = 'walker_params' #200
+
+
+    for i in range(1):
+        env_name = f'{base_env}-{i}'
+        env = create_env(env_name=env_name, config_save_path=task_config_path)
+        # not always 500
+        if 'ML1' in env_name or 'ML10' in env_name:
+            print(env.max_path_length)
+        else:
+            print(env._max_episode_steps)
+    
+
+
 if __name__ == '__main__':
-    #test_envs(render=False)
+    #test_envs(render=True)
     #test_walker()
     #test_ml10()
-    check_expert_trajectory()
+    #check_expert_trajectory()
+    #test_ml10_name()
+    #visualize_expert_trajectory()
+    check_max_ep_len()
 

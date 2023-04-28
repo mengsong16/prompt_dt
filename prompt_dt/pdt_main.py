@@ -125,10 +125,10 @@ def experiment_mix_env(config_filename, mode):
     train_env_name_list, test_env_name_list = load_train_test_env_name_list(base_env)
 
     # training envs (already written info for each env)
-    train_info, train_env_list = get_env_list(train_env_name_list, task_config_path, device, seed)
+    train_info, train_env_list = get_env_list(train_env_name_list, task_config_path, device)
     
     # test envs (already written info for each env)
-    test_info, test_env_list = get_env_list(test_env_name_list, task_config_path, device, seed)
+    test_info, test_env_list = get_env_list(test_env_name_list, task_config_path, device)
 
     print("======> Loaded %d train envs"%(len(train_env_list)))
     print("======> Loaded %d test envs"%(len(test_env_list)))

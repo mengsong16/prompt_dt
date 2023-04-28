@@ -31,8 +31,8 @@ def load_train_test_env_name_list(env_name):
     
     return train_env_name_list, test_env_name_list
 
-# create a single environment with reward scale, maximum episode length, return target
-def gen_env(env_name, config_save_path, seed):
+# create a single sub-environment with reward scale, maximum episode length, return target
+def gen_env(env_name, config_save_path):
     if 'cheetah_dir' in env_name:
         # include_goal = False: do not include goal in observations
         if '0' in env_name:  # direction 1
@@ -70,12 +70,33 @@ def gen_env(env_name, config_save_path, seed):
         scale = 500.
     elif 'ML1-' in env_name: # metaworld ML1
         task_name = '-'.join(env_name.split('-')[1:-1])
-        ml1 = metaworld.ML1(task_name, seed=seed) # construct the benchmark, sampling tasks
+        # construct the benchmark, sampling tasks
+        # note that this seed must be 1 which is used to generate the dataset
+        ml1 = metaworld.ML1(task_name, seed=1) 
         env = ml1.train_classes[task_name]()  # create an environment with task
         task_idx = int(env_name.split('-')[-1])
         task = ml1.train_tasks[task_idx]
         env.set_task(task)  # set task
-        max_ep_len = 500 
+        max_ep_len = env.max_path_length #500 
+        env_targets = [650]
+        scale = 650.
+    elif 'ML10-' in env_name: # metaworld ML10
+        task_name = '-'.join(env_name.split('-')[1:-1])
+        task_idx = int(env_name.split('-')[-1])
+        # construct the benchmark
+        # note that this seed must be 1 which is used to generate the dataset
+        ml10 = metaworld.ML10(seed=1) 
+        # construct the environment
+        env = ml10.train_classes[task_name]()
+        # get subtasks
+        sub_tasks = [task for task in ml10.train_tasks
+                    if task.env_name == task_name]
+        # get specific task
+        task = sub_tasks[task_idx]
+        # set task
+        env.set_task(task)
+        
+        max_ep_len = env.max_path_length 
         env_targets = [650]
         scale = 650.
     else:
@@ -84,14 +105,14 @@ def gen_env(env_name, config_save_path, seed):
 
 # load a list of environments
 # pack environment info
-def get_env_list(env_name_list, config_save_path, device, seed):
+def get_env_list(env_name_list, config_save_path, device):
     info = {} # store all the attributes for each env
     env_list = []
     
     for env_name in env_name_list:
         info[env_name] = {}
         # create env
-        env, max_ep_len, env_targets, scale = gen_env(env_name=env_name, config_save_path=config_save_path, seed=seed)
+        env, max_ep_len, env_targets, scale = gen_env(env_name=env_name, config_save_path=config_save_path)
         # get environment information
         info[env_name]['max_ep_len'] = max_ep_len
         info[env_name]['env_targets'] = env_targets # a list of target rtg in the specific environment used in the evaluation
@@ -752,7 +773,7 @@ def compute_max_return_random_return(base_env):
 def compute_max_return_random_return_for_one_dataset(base_env, env_name_list):
     return_info = {}
     # load envs and env infos
-    env_info, env_list = get_env_list(env_name_list, task_config_path, device='cuda:0', seed=1)
+    env_info, env_list = get_env_list(env_name_list, task_config_path, device='cuda:0')
     # load expert trajectories and expert prompt trajectories
     trajectories_list, prompt_trajectories_list, trajectory_num, prompt_trajectory_num = load_data_prompt(env_name_list, data_path, 'expert', 'expert', base_env)
 

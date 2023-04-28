@@ -56,7 +56,7 @@ test_eval_interval: 500 #100
 save_interval: 500
 # for both train and evaluation
 # eval n episodes for each environment
-num_eval_episodes: 20 #50
+num_eval_episodes: 50 #20 #50
 # normalize state or not
 # for both train and evaluation
 # for both train trajectory and prompt trajectory 

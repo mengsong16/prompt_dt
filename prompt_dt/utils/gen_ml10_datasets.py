@@ -45,10 +45,13 @@ def generate_one_subtask(env, policy, env_name, subtask_idx, input_traj_per_subt
         # note that goal_distance, grasp_success is not a general component in info, but 'success'[float] is 
         cur_traj = { 'observations': [], 'actions': [], 'rewards': [], 'terminals': [], 'success': [] }
 
-        env.reset()
-        env.reset_model()
+        # env.reset()
+        # env.reset_model()
         obs = env.reset()
-        cur_traj['observations'].append(obs)
+        # zero out goal
+        zero_out_obs = copy.deepcopy(obs)
+        zero_out_obs[-3:] = np.zeros(3)
+        cur_traj['observations'].append(zero_out_obs)
         
         for step in range(env.max_path_length): # max path length = 500 from https://github.com/Farama-Foundation/Metaworld/blob/master/metaworld/envs/mujoco/mujoco_env.py
             # no noise added to the action
@@ -56,10 +59,15 @@ def generate_one_subtask(env, policy, env_name, subtask_idx, input_traj_per_subt
             obs, reward, done, info = env.step(action)
             success = info['success']
             # modify done if succeed
+            # done when first succeed
             if bool(success):
                 done = True
 
-            cur_traj['observations'].append(obs)
+            # zero out goal
+            zero_out_obs = copy.deepcopy(obs)
+            zero_out_obs[-3:] = np.zeros(3)
+
+            cur_traj['observations'].append(zero_out_obs)
             cur_traj['actions'].append(action)
             cur_traj['rewards'].append(reward)
             cur_traj['terminals'].append(done) # won't be used
@@ -113,16 +121,33 @@ def generate_one_subtask(env, policy, env_name, subtask_idx, input_traj_per_subt
         pickle.dump(prompt_trajectories, f)
         print("Total prompt trajectories: ", len(prompt_trajectories))
         print("======> Saved input trajectories to ", prompt_traj_file_path)
-    
-def generate_ml10(seed=1):
-    # seed everything except environments
-    seed_other(seed=seed)
 
-    input_traj_per_subtask = 100
+def save_subtask(subtask, env_name, subtask_idx):
+    # set up save folder
+    folder_name = f'ML10-{env_name}'
+    folder_path = os.path.join(task_config_path, folder_name)
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
+
+    task_file_name = f'config-ML10-{env_name}-task{subtask_idx}.pkl'
+    task_file_path = os.path.join(folder_path, task_file_name)
+    with open(task_file_path, 'wb') as f:
+        pickle.dump(subtask, f)
+        print("======> Saved task config to ", task_file_path)
+
+
+
+def generate_ml10():
+    # seed everything except environments
+    seed_other(seed=1)
+
+    #input_traj_per_subtask = 100
+    input_traj_per_subtask = 10
     prompt_traj_per_subtask = 5
 
     # Construct and seed the benchmark, sampling tasks
-    ml10 = metaworld.ML10(seed=seed) 
+    # Note that this seed should be consistent with the one in training and test
+    ml10 = metaworld.ML10(seed=1) 
 
     # 10 train envs
     train_envs = []
@@ -149,14 +174,21 @@ def generate_ml10(seed=1):
         # loop over sub env
         for subtask_idx in range(len(subtasks)):
             # Associate env with the subtask
-            env.set_task(subtasks[subtask_idx])
+            subtask = subtasks[subtask_idx]
+            env.set_task(subtask)
             # set goal as observable
             env._partially_observable = False
-            env._freeze_rand_vec = False
-            env._set_task_called = True
+            # freeze random s0
+            # env._freeze_rand_vec = True
+            #env._freeze_rand_vec = False
+            #env._set_task_called = True
             # generate input trajectories and prompt trajectories
             generate_one_subtask(env, policy, env_name, subtask_idx, input_traj_per_subtask, prompt_traj_per_subtask)
-
+            # save subtask
+            save_subtask(subtask, env_name, subtask_idx)
+        
+        break
+    print("Done!")
 
 ### ---------- test scripted policy -------------
 def trajectory_summary(env, policy, act_noise_pct, render=False, end_on_success=True):
