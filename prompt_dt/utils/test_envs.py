@@ -24,8 +24,6 @@ def create_env(env_name, config_save_path):
         elif '1' in env_name: # direction -1
             env = HalfCheetahDirEnv([{'direction': -1}], include_goal = False)
         
-        #print(env._goal)  # 1
-        
     elif 'cheetah_vel' in env_name:
         task_idx = int(env_name.split('-')[-1])
         task_paths = f"{config_save_path}/cheetah_vel/config_cheetah_vel_task{task_idx}.pkl"
@@ -55,11 +53,20 @@ def create_env(env_name, config_save_path):
         env.set_task_idx(0)
     elif 'ML1-' in env_name: # metaworld ML1
         task_name = '-'.join(env_name.split('-')[1:-1])
-        ml1 = metaworld.ML1(task_name, seed=1) # construct the benchmark, sampling tasks
-        env = ml1.train_classes[task_name]()  # create an environment with task
+        # construct the benchmark
+        # note that this seed must be 1 which is used to generate the dataset
+        ml1 = metaworld.ML1(task_name, seed=1) 
+        # construct the environment
+        env = ml1.train_classes[task_name]()  
         task_idx = int(env_name.split('-')[-1])
-        task = ml1.train_tasks[task_idx]
-        env.set_task(task)  # set task
+        # task = ml1.train_tasks[task_idx]
+        # load task
+        task_path = os.path.join(config_save_path, f'ML1-{task_name}', f'config-ML1-{task_name}-task{task_idx}.pkl')
+        with open(task_path, 'rb') as f:
+            task = pickle.load(f)
+
+        # set task
+        env.set_task(task)  
         # print(env.goal) [0.1 0.8 0.2]
     elif 'ML10-' in env_name: # metaworld ML10
         task_name = '-'.join(env_name.split('-')[1:-1])
@@ -70,11 +77,7 @@ def create_env(env_name, config_save_path):
         ml10 = metaworld.ML10(seed=1) 
         # construct the environment
         env = ml10.train_classes[task_name]()
-        # get subtasks
-        # sub_tasks = [task for task in ml10.train_tasks
-        #             if task.env_name == task_name]
-        # get specific task
-        #task = sub_tasks[task_idx]
+        # load task
         task_path = os.path.join(config_save_path, f'ML10-{task_name}', f'config-ML10-{task_name}-task{task_idx}.pkl')
         
         with open(task_path, 'rb') as f:
@@ -100,16 +103,13 @@ def create_env_list(env_name_list, config_save_path):
     return env_list
 
 def test_envs(render):
-    #base_env = 'cheetah_vel' # ['cheetah_dir', 'cheetah_vel', 'ant_dir', 'ML1-pick-place-v2']
-    #train_env_name_list, test_env_name_list = load_train_test_env_name_list(base_env)
-
     # 'ant_dir-0', 'cheetah_vel-0', 'cheetah_dir-0', 'ML1-pick-place-v2-0', "ML10-pick-place-v2-0"
     env_name = 'ML10-pick-place-v2-0'
     env = create_env(env_name=env_name, config_save_path=task_config_path)
     if "ML1" in env_name or "ML10" in env_name:
         max_ep_len = env.max_path_length #500
     else:
-        max_ep_len = 200
+        max_ep_len = env._max_episode_steps #200
 
     # suppress scientific notation
     np.set_printoptions(suppress=True)
@@ -166,7 +166,7 @@ def check_expert_trajectory():
     if "ML1" in env_name or "ML10" in env_name:
         max_ep_len = env.max_path_length #500
     else:
-        max_ep_len = 200
+        max_ep_len = env._max_episode_steps #200
 
     # load expert trajectory
     dataset_path = data_path+f'/{base_env}/{env_name}-expert.pkl'
@@ -178,8 +178,10 @@ def check_expert_trajectory():
     print("================= expert trajectory ==================")
     print_type_shape(expert_traj)
 
-
-    env_traj = { 'observations': [], 'actions': [], 'rewards': [], 'terminals': [], 'success': []}
+    if "ML1" in env_name or "ML10" in env_name:
+        env_traj = { 'observations': [], 'actions': [], 'rewards': [], 'terminals': [], 'success': []}
+    else:
+        env_traj = { 'observations': [], 'actions': [], 'rewards': [], 'terminals': []}
 
     obs = env.reset()
     env_traj['observations'].append(obs)
@@ -193,7 +195,9 @@ def check_expert_trajectory():
         env_traj['observations'].append(obs)
         env_traj['rewards'].append(reward)
         env_traj['terminals'].append(done)
-        env_traj['success'].append(info['success'])
+        
+        if 'success' in env_traj.keys():
+            env_traj['success'].append(info['success'])
 
         if done: 
             break
@@ -244,14 +248,16 @@ def check_expert_trajectory():
     print(env_traj["actions"][-1])
     print('-'*80)
     print(env_traj["actions"][-1])
-    print("================= Compare info0 ==================")
-    print(env_traj["success"][0])
-    print('-'*80)
-    print(env_traj["success"][0])
-    print("================= Compare infoT ==================")
-    print(env_traj["success"][-1])
-    print('-'*80)
-    print(env_traj["success"][-1])
+
+    if 'success' in env_traj.keys():
+        print("================= Compare info0 ==================")
+        print(env_traj["success"][0])
+        print('-'*80)
+        print(env_traj["success"][0])
+        print("================= Compare infoT ==================")
+        print(env_traj["success"][-1])
+        print('-'*80)
+        print(env_traj["success"][-1])
     
 
 def test_walker():
@@ -387,17 +393,23 @@ def visualize_expert_trajectory():
     # env_name = 'ML1-pick-place-v2-1'
     # base_env = 'ML1-pick-place-v2'
 
-    # env_name = 'ML10-pick-place-v2-1'
+    # env_name = 'ML1-reach-v2-1'
+    # base_env = 'ML1-reach-v2'
+
+    # env_name = 'ML10-pick-place-v2-36'
     # base_env = 'ML10-pick-place-v2'
 
-    env_name = 'ML10-reach-v2-30'
-    base_env = 'ML10-reach-v2'
+    # env_name = 'ML10-reach-v2-30'
+    # base_env = 'ML10-reach-v2'
+
+    env_name = 'ML10-drawer-close-v2-1'
+    base_env = 'ML10-drawer-close-v2'
 
     env = create_env(env_name=env_name, config_save_path=task_config_path)
     if "ML1" in env_name or "ML10" in env_name:
         max_ep_len = env.max_path_length #500
     else:
-        max_ep_len = 200
+        max_ep_len = env._max_episode_steps #200
 
     # load expert trajectory
     dataset_path = data_path+f'/{base_env}/{env_name}-expert.pkl'
@@ -417,15 +429,16 @@ def visualize_expert_trajectory():
             action = expert_traj["actions"][i]
             #print(action)
             obs, reward, done, info = env.step(action)
-            success = info['success']
-            print(success)
+            if "ML1" in env_name or "ML10" in env_name:
+                success = info['success']
+                print(success)
             env.render()
             
             if done: 
                 break
                         
         print('Total timesteps: %d'%(i+1))
-        break
+        #break
 
 def check_max_ep_len():
     base_env = 'ML1-pick-place-v2' #100
@@ -462,6 +475,6 @@ if __name__ == '__main__':
     #test_ml10()
     #check_expert_trajectory()
     #test_ml10_name()
-    #visualize_expert_trajectory()
-    check_max_ep_len()
+    visualize_expert_trajectory()
+    #check_max_ep_len()
 

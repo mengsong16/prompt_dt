@@ -39,7 +39,7 @@ def gen_env(env_name, config_save_path):
             env = HalfCheetahDirEnv([{'direction': 1}], include_goal = False)
         elif '1' in env_name: # direction -1
             env = HalfCheetahDirEnv([{'direction': -1}], include_goal = False)
-        max_ep_len = 200
+        max_ep_len = env._max_episode_steps #200
         env_targets = [1000] #[1500]
         scale = 1000.
     elif 'cheetah_vel' in env_name:
@@ -52,7 +52,7 @@ def gen_env(env_name, config_save_path):
             tasks.append(task_info[0])
         # include_goal = False: do not include goal in observations
         env = HalfCheetahVelEnv(tasks, include_goal = False)
-        max_ep_len = 200
+        max_ep_len = env._max_episode_steps #200
         env_targets = [0]
         scale = 500.
     elif 'ant_dir' in env_name:
@@ -65,7 +65,7 @@ def gen_env(env_name, config_save_path):
             tasks.append(task_info[0])
         # include_goal = False: do not include goal in observations
         env = AntDirEnv(tasks, len(tasks), include_goal = False)
-        max_ep_len = 200
+        max_ep_len = env._max_episode_steps #200
         env_targets = [500]
         scale = 500.
     elif 'ML1-' in env_name: # metaworld ML1
@@ -75,9 +75,16 @@ def gen_env(env_name, config_save_path):
         ml1 = metaworld.ML1(task_name, seed=1) 
         env = ml1.train_classes[task_name]()  # create an environment with task
         task_idx = int(env_name.split('-')[-1])
-        task = ml1.train_tasks[task_idx]
-        env.set_task(task)  # set task
-        max_ep_len = env.max_path_length #500 
+        # task = ml1.train_tasks[task_idx]
+        
+        # load task
+        task_path = os.path.join(config_save_path, f'ML1-{task_name}', f'config-ML1-{task_name}-task{task_idx}.pkl')
+        with open(task_path, 'rb') as f:
+            task = pickle.load(f)
+        
+        # set task
+        env.set_task(task)  
+        max_ep_len = env.max_path_length #500 or 100
         env_targets = [650]
         scale = 650.
     elif 'ML10-' in env_name: # metaworld ML10
@@ -88,15 +95,22 @@ def gen_env(env_name, config_save_path):
         ml10 = metaworld.ML10(seed=1) 
         # construct the environment
         env = ml10.train_classes[task_name]()
-        # get subtasks
-        sub_tasks = [task for task in ml10.train_tasks
-                    if task.env_name == task_name]
-        # get specific task
-        task = sub_tasks[task_idx]
+        # # get subtasks
+        # sub_tasks = [task for task in ml10.train_tasks
+        #             if task.env_name == task_name]
+        # # get specific task
+        # task = sub_tasks[task_idx]
+
+        # load task
+        task_path = os.path.join(config_save_path, f'ML10-{task_name}', f'config-ML10-{task_name}-task{task_idx}.pkl')
+        
+        with open(task_path, 'rb') as f:
+            task = pickle.load(f)
+            
         # set task
         env.set_task(task)
         
-        max_ep_len = env.max_path_length 
+        max_ep_len = env.max_path_length #500 or 100
         env_targets = [650]
         scale = 650.
     else:

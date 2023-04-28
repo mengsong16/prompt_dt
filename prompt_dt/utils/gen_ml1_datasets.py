@@ -37,7 +37,7 @@ policies = {
 
 def generate_one_subtask(env, policy, env_name, subtask_idx, input_traj_per_subtask, prompt_traj_per_subtask):
     # generate input trajectories for current subtask
-    print(f"================= ML10-{env_name}-{subtask_idx}-expert ==================")
+    print(f"================= ML1-{env_name}-{subtask_idx}-expert ==================")
 
     input_trajectories = []
 
@@ -98,13 +98,13 @@ def generate_one_subtask(env, policy, env_name, subtask_idx, input_traj_per_subt
     prompt_trajectories = random.sample(input_trajectories, prompt_traj_per_subtask)
     
     # set up save folder
-    folder_name = f'ML10-{env_name}'
+    folder_name = f'ML1-{env_name}'
     folder_path = os.path.join(data_path, folder_name)
     if not os.path.exists(folder_path):
         os.makedirs(folder_path)
     
     # save input trajectories 
-    input_traj_file_name = f'ML10-{env_name}-{subtask_idx}-expert.pkl'
+    input_traj_file_name = f'ML1-{env_name}-{subtask_idx}-expert.pkl'
     input_traj_file_path = os.path.join(folder_path, input_traj_file_name)
     with open(input_traj_file_path, 'wb') as f:
         pickle.dump(input_trajectories, f)
@@ -112,7 +112,7 @@ def generate_one_subtask(env, policy, env_name, subtask_idx, input_traj_per_subt
         print("======> Saved input trajectories to ", input_traj_file_path)
     
     # save prompt trajectories
-    prompt_traj_file_name = f'ML10-{env_name}-{subtask_idx}-prompt-expert.pkl'
+    prompt_traj_file_name = f'ML1-{env_name}-{subtask_idx}-prompt-expert.pkl'
     prompt_traj_file_path = os.path.join(folder_path, prompt_traj_file_name)
     with open(prompt_traj_file_path, 'wb') as f:
         pickle.dump(prompt_trajectories, f)
@@ -121,19 +121,19 @@ def generate_one_subtask(env, policy, env_name, subtask_idx, input_traj_per_subt
 
 def save_subtask(subtask, env_name, subtask_idx):
     # set up save folder
-    folder_name = f'ML10-{env_name}'
+    folder_name = f'ML1-{env_name}'
     folder_path = os.path.join(task_config_path, folder_name)
     if not os.path.exists(folder_path):
         os.makedirs(folder_path)
 
-    task_file_name = f'config-ML10-{env_name}-task{subtask_idx}.pkl'
+    task_file_name = f'config-ML1-{env_name}-task{subtask_idx}.pkl'
     task_file_path = os.path.join(folder_path, task_file_name)
     with open(task_file_path, 'wb') as f:
         pickle.dump(subtask, f)
         print("======> Saved task config to ", task_file_path)
 
 
-def generate_ml10():
+def generate_ml1(env_name):
     # seed everything except environments
     seed_other(seed=1)
 
@@ -142,151 +142,28 @@ def generate_ml10():
 
     # Construct and seed the benchmark, sampling tasks
     # Note that this seed should be consistent with the one used in training and test
-    ml10 = metaworld.ML10(seed=1) 
+    ml1 = metaworld.ML1(env_name, seed=1) # construct the benchmark, sampling tasks
+    # create env
+    env = ml1.train_classes[env_name]()  
+    # create expert policy
+    policy = policies[env_name]() 
 
-    # 10 train envs
-    train_envs = []
-    train_env_names = []
-    train_tasks = [] # a list of list
-    for name, env_cls in ml10.train_classes.items():
-        env = env_cls()
-
-        sub_tasks = [task for task in ml10.train_tasks
-                    if task.env_name == name]
-        train_tasks.append(sub_tasks)
-        train_envs.append(env)
-        train_env_names.append(name)
+    # loop over 50 sub-envs
+    for subtask_idx in range(50):
+        # Associate env with the subtask
+        subtask = ml1.train_tasks[subtask_idx]
+        env.set_task(subtask)
+        # set goal as observable
+        env._partially_observable = False
+        # generate input trajectories and prompt trajectories
+        generate_one_subtask(env, policy, env_name, subtask_idx, input_traj_per_subtask, prompt_traj_per_subtask)
+        # save subtask
+        save_subtask(subtask, env_name, subtask_idx)
     
-    assert len(train_envs) == len(train_env_names) == len(train_tasks), "ML10: train envs, train_env_names, train_tasks should have the same length"
-    
-    # loop over base env
-    for i, env_name in enumerate(train_env_names):
-        
-        env = train_envs[i]
-        subtasks = train_tasks[i]
-        policy = policies[env_name]() # get expert policy
-
-        # loop over sub env
-        for subtask_idx in range(len(subtasks)):
-            # Associate env with the subtask
-            subtask = subtasks[subtask_idx]
-            env.set_task(subtask)
-            # set goal as observable
-            env._partially_observable = False
-            # generate input trajectories and prompt trajectories
-            generate_one_subtask(env, policy, env_name, subtask_idx, input_traj_per_subtask, prompt_traj_per_subtask)
-            # save subtask
-            save_subtask(subtask, env_name, subtask_idx)
-        
     print("Done!")
 
-### ---------- test scripted policy -------------
-def trajectory_summary(env, policy, act_noise_pct, render=False, end_on_success=True):
-    """Tests whether a given policy solves an environment
-    Args:
-        env (metaworld.envs.MujocoEnv): Environment to test
-        policy (metaworld.policies.policies.Policy): Policy that's supposed to
-            succeed in env
-        act_noise_pct (np.ndarray): Decimal value(s) indicating std deviation of
-            the noise as a % of action space
-        render (bool): Whether to render the env in a GUI
-        end_on_success (bool): Whether to stop stepping after first success
-    Returns:
-        (bool, np.ndarray, np.ndarray, int): Success flag, Rewards, Returns,
-            Index of first success
-    """
-    success = False
-    first_success = 0
-    rewards = []
-
-    for t, (r, done, info) in enumerate(trajectory_generator(env, policy, act_noise_pct, render)):
-        rewards.append(r)
-        assert not env.isV2 or set(info.keys()) == {
-            'success',
-            'near_object',
-            'grasp_success',
-            'grasp_reward',
-            'in_place_reward',
-            'obj_to_target',
-            'unscaled_reward'
-        }
-        success |= bool(info['success'])
-        if not success:
-            first_success = t
-        if (success or done) and end_on_success:
-            break
-
-    rewards = np.array(rewards)
-    returns = np.cumsum(rewards)
-
-    return success, rewards, returns, first_success
-
-
-def trajectory_generator(env, policy, act_noise_pct, render=False):
-    """Tests whether a given policy solves an environment
-    Args:
-        env (metaworld.envs.MujocoEnv): Environment to test
-        policy (metaworld.policies.policies.Policy): Policy that's supposed to
-            succeed in env
-        act_noise_pct (np.ndarray): Decimal value(s) indicating std deviation of
-            the noise as a % of action space
-        render (bool): Whether to render the env in a GUI
-    Yields:
-        (float, bool, dict): Reward, Done flag, Info dictionary
-    """
-    action_space_ptp = env.action_space.high - env.action_space.low
-
-    env.reset()
-    env.reset_model()
-    o = env.reset()
-    assert o.shape == env.observation_space.shape
-    assert env.observation_space.contains(o), obs_space_error_text(env, o)
-
-    for _ in range(env.max_path_length):
-        a = policy.get_action(o)
-        a = np.random.normal(a, act_noise_pct * action_space_ptp)
-
-        o, r, done, info = env.step(a)
-        assert env.observation_space.contains(o), obs_space_error_text(env, o)
-        if render:
-            env.render()
-
-        yield r, done, info
-
-
-def obs_space_error_text(env, obs):
-    return "Obs Out of Bounds\n\tlow: {}, \n\tobs: {}, \n\thigh: {}".format(
-        env.observation_space.low[[0, 1, 2, -3, -2, -1]],
-        obs[[0, 1, 2, -3, -2, -1]],
-        env.observation_space.high[[0, 1, 2, -3, -2, -1]]
-    )
-
-
-def test_scripted_policy():
-    ml10 = metaworld.ML10(seed=1) 
-    
-
-    env = None
-    for name, env_cls in ml10.train_classes.items():
-        if name == 'reach-v2':
-            env = env_cls()
-            break
-    if env is None:
-        print("Env is not correctly created!")
-        exit()
-    
-    sub_tasks = [task for task in ml10.train_tasks
-                        if task.env_name == 'reach-v2']
-
-    env.set_task(sub_tasks[0])
-    env._partially_observable = False
-    env._freeze_rand_vec = False
-    env._set_task_called = True
-
-    policy = SawyerReachV2Policy()
-    summary = trajectory_summary(env, policy, act_noise_pct=0, render=False)
-    print(summary[0])
 
 if __name__ == '__main__':
-    generate_ml10()
-    #test_scripted_policy()
+    #generate_ml1('pick-place-v2')
+    generate_ml1('reach-v2')
+    
