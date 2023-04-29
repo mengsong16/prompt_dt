@@ -56,11 +56,7 @@ def generate_one_subtask(env, policy, env_name, subtask_idx, input_traj_per_subt
             action = policy.get_action(obs)
             obs, reward, done, info = env.step(action)
             success = info['success']
-            # modify done if succeed
-            # done when first succeed
-            if bool(success):
-                done = True
-
+            
             # zero out goal
             zero_out_obs = copy.deepcopy(obs)
             zero_out_obs[-3:] = np.zeros(3)
@@ -162,8 +158,46 @@ def generate_ml1(env_name):
     
     print("Done!")
 
+def test_scripted_policy(env_name):
+    # seed everything except environments
+    seed_other(seed=1)
+
+    ml1 = metaworld.ML1(env_name, seed=1) # construct the benchmark, sampling tasks
+    # create env
+    env = ml1.train_classes[env_name]() 
+
+    # create expert policy
+    policy = policies[env_name]() 
+
+    # Associate env with the first subtask
+    subtask = ml1.train_tasks[0]
+    env.set_task(subtask)
+    # set goal as observable
+    env._partially_observable = False
+
+    obs = env.reset()
+    for step in range(env.max_path_length): # max path length = 500 from https://github.com/Farama-Foundation/Metaworld/blob/master/metaworld/envs/mujoco/mujoco_env.py
+        # no noise added to the action
+        action = policy.get_action(obs)
+        obs, reward, done, info = env.step(action)
+        success = info['success']
+        print(success)
+        # modify done if succeed
+        # done when first succeed
+        # if bool(success):
+        #     done = True
+        
+        if done:
+            assert ((step ==  env.max_path_length - 1) or bool(success)), "Error: should done when max steps are reached or succeeded"
+            break
+
+    print('Total timesteps: %d'%(step+1))      
 
 if __name__ == '__main__':
-    #generate_ml1('pick-place-v2')
+    generate_ml1('pick-place-v2')
     generate_ml1('reach-v2')
-    
+    generate_ml1('sweep-v2')
+
+    #test_scripted_policy('reach-v2')
+    #test_scripted_policy('pick-place-v2')
+    #test_scripted_policy('sweep-v2')

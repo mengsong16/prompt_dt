@@ -127,6 +127,11 @@ def test_envs(render):
             action = env.action_space.sample()
             obs, reward, done, info = env.step(action)
             #print('action: {}   state: {}  reward: {}'.format(action, obs, reward))
+
+            # assert goal is hidden
+            if "ML1" in env_name or "ML10" in env_name:
+                assert (obs[-3:] == np.zeros(3)).all()
+
             if i == 0:
                 print("state s1: %s"%obs)
 
@@ -159,8 +164,20 @@ def check_expert_trajectory():
     # env_name = 'ML1-pick-place-v2-0'
     # base_env = 'ML1-pick-place-v2'
 
-    env_name = 'ML10-reach-v2-2'
-    base_env = 'ML10-reach-v2'
+    # env_name = 'ML1-reach-v2-0'
+    # base_env = 'ML1-reach-v2'
+
+    # env_name = 'ML1-sweep-v2-0'
+    # base_env = 'ML1-sweep-v2'
+
+    # env_name = 'ML10-reach-v2-2'
+    # base_env = 'ML10-reach-v2'
+
+    # env_name = 'ML10-pick-place-v2-0'
+    # base_env = 'ML10-pick-place-v2'
+
+    env_name = 'ML10-peg-insert-side-v2-45'
+    base_env = 'ML10-peg-insert-side-v2'
 
     env = create_env(env_name=env_name, config_save_path=task_config_path)
     if "ML1" in env_name or "ML10" in env_name:
@@ -186,8 +203,8 @@ def check_expert_trajectory():
     obs = env.reset()
     env_traj['observations'].append(obs)
 
-    #for i in range(max_ep_len): 
-    for i in range(len(expert_traj["actions"])):
+    for i in range(max_ep_len): 
+    #for i in range(len(expert_traj["actions"])):
         action = expert_traj["actions"][i]
         env_traj['actions'].append(action)
 
@@ -217,13 +234,22 @@ def check_expert_trajectory():
     print(env_traj["observations"][0])
     print('-'*80)
     print(expert_traj["observations"][0])
-    #exit()
+    # assert goal is hidden
+    if "ML1" in env_name or "ML10" in env_name:
+        assert (expert_traj["observations"][0][-3:] == np.zeros(3)).all()
+    
     print("================= Compare sT ==================")
     print(env_traj["observations"][-1])
     print('-'*80)
     print(env_traj["observations"][-2])
     print('-'*80)
     print(expert_traj["observations"][-1])
+    # assert goal is hidden
+    if "ML1" in env_name or "ML10" in env_name:
+        assert (expert_traj["observations"][-1][-3:] == np.zeros(3)).all()
+    
+    exit()
+
     print("================= Compare r0 ==================")
     print(env_traj["rewards"][0])
     print('-'*80)
@@ -402,8 +428,17 @@ def visualize_expert_trajectory():
     # env_name = 'ML10-reach-v2-30'
     # base_env = 'ML10-reach-v2'
 
-    env_name = 'ML10-drawer-close-v2-1'
-    base_env = 'ML10-drawer-close-v2'
+    # env_name = 'ML10-drawer-close-v2-1'
+    # base_env = 'ML10-drawer-close-v2'
+
+    # env_name = 'ML10-sweep-v2-38'
+    # base_env = 'ML10-sweep-v2'
+
+    # env_name = 'ML10-peg-insert-side-v2-6'
+    # base_env = 'ML10-peg-insert-side-v2'
+
+    env_name = 'ML10-door-open-v2-26'
+    base_env = 'ML10-door-open-v2'
 
     env = create_env(env_name=env_name, config_save_path=task_config_path)
     if "ML1" in env_name or "ML10" in env_name:
@@ -424,8 +459,8 @@ def visualize_expert_trajectory():
         # env.reset()
         # env.reset_model()
         obs = env.reset()
-        #for i in range(max_ep_len): 
-        for i in range(len(expert_traj["actions"])): 
+        for i in range(max_ep_len): 
+        #for i in range(len(expert_traj["actions"])): 
             action = expert_traj["actions"][i]
             #print(action)
             obs, reward, done, info = env.step(action)
@@ -437,6 +472,7 @@ def visualize_expert_trajectory():
             if done: 
                 break
                         
+        #assert done == True
         print('Total timesteps: %d'%(i+1))
         #break
 

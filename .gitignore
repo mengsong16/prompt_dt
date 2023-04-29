@@ -1,4 +1,4 @@
-**/data/
+**/data
 **/wandb/
 **/runs/
 **/evaluation/
@@ -7,7 +7,17 @@
 **/envs/jacopinpad
 **/envs/mujoco-control-envs/mujoco_control_envs/tp_envs/rand_param_envs/rand_param_envs/gym
 **/envs/mujoco-control-envs/mujoco_control_envs/tp_envs/rand_param_envs/rand_param_envs/mujoco_py
-**/envs/metaworld
+**/envs/metaworld/*
+!**/envs/metaworld/metaworld
+**/envs/metaworld/metaworld/*
+!**/envs/metaworld/metaworld/envs
+**/envs/metaworld/metaworld/envs/*
+!**/envs/metaworld/metaworld/envs/mujoco
+**/envs/metaworld/metaworld/envs/mujoco/*
+!**/envs/metaworld/metaworld/envs/mujoco/sawyer_xyz/
+**/envs/metaworld/metaworld/envs/mujoco/sawyer_xyz/*
+!**/envs/metaworld/metaworld/envs/mujoco/sawyer_xyz/sawyer_xyz_env.py
+!**/envs/metaworld/metaworld/envs/mujoco/env_dict.py
 **/task_config/
 **/figures/
 **__

@@ -56,10 +56,6 @@ def generate_one_subtask(env, policy, env_name, subtask_idx, input_traj_per_subt
             action = policy.get_action(obs)
             obs, reward, done, info = env.step(action)
             success = info['success']
-            # modify done if succeed
-            # done when first succeed
-            if bool(success):
-                done = True
 
             # zero out goal
             zero_out_obs = copy.deepcopy(obs)
