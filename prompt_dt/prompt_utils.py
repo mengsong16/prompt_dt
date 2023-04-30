@@ -728,9 +728,11 @@ def process_dataset(trajectories, reward_mode, env_name, dataset, pct_traj, verb
     return trajectories, num_trajectories, sorted_inds, p_sample, state_mean, state_std, reward_info
 
 # load regular trajectories and prompt trajectories
-def load_data_prompt(env_name_list, data_save_path, dataset, prompt_mode, base_env):
+def load_data_prompt(env_name_list, data_save_path, dataset, prompt_mode):
     trajectories_list = [] # a list of trajectory list, each trajectory list comes from a specific environment
     prompt_trajectories_list = [] # a list of trajectory list, each trajectory list comes from a specific environment
+
+    base_env = '-'.join(env_name_list[0].split('-')[:-1])
 
     trajectory_num = {}
     prompt_trajectory_num = {}
@@ -789,10 +791,10 @@ def compute_max_return_random_return(base_env):
 
     # for training dataset
     print("======================== processing training envs ==============================")
-    train_return_info = compute_max_return_random_return_for_one_dataset(base_env, train_env_name_list)
+    train_return_info = compute_max_return_random_return_for_one_dataset(train_env_name_list)
     # for test dataset
     print("======================== processing test envs ==============================")
-    test_return_info = compute_max_return_random_return_for_one_dataset(base_env, test_env_name_list)
+    test_return_info = compute_max_return_random_return_for_one_dataset(test_env_name_list)
     # combine two dictionaries
     return_info = train_return_info.copy()
     return_info.update(test_return_info)
@@ -815,12 +817,12 @@ def compute_max_return_random_return(base_env):
     print('======> Return information saved to ', save_path)
 
 
-def compute_max_return_random_return_for_one_dataset(base_env, env_name_list):
+def compute_max_return_random_return_for_one_dataset(env_name_list):
     return_info = {}
     # load envs and env infos
     env_info, env_list = get_env_list(env_name_list, task_config_path, device='cuda:0')
     # load expert trajectories and expert prompt trajectories
-    trajectories_list, prompt_trajectories_list, trajectory_num, prompt_trajectory_num = load_data_prompt(env_name_list, data_path, 'expert', 'expert', base_env)
+    trajectories_list, prompt_trajectories_list, trajectory_num, prompt_trajectory_num = load_data_prompt(env_name_list, data_path, 'expert', 'expert')
 
     # for each environment, get max return from expert dataset
     for i, env_name in enumerate(env_name_list):
@@ -913,9 +915,14 @@ def append_return_info(train_info, test_info, train_env_name_list, test_env_name
 
 
 if __name__ == '__main__':
-    # ['cheetah_dir', 'cheetah_vel', 'ant_dir', 'ML1-pick-place-v2']
-    compute_max_return_random_return(base_env="ML1-pick-place-v2") 
-    compute_max_return_random_return(base_env="ML1-reach-v2")
-    compute_max_return_random_return(base_env="ML1-sweep-v2")
+    # ['cheetah_dir', 'cheetah_vel', 'ant_dir', 'ML1-pick-place-v2', 'ML1-reach-v2', 'ML1-sweep-v2', 'ML10']
+    # compute_max_return_random_return(base_env="ML1-pick-place-v2") 
+    # compute_max_return_random_return(base_env="ML1-reach-v2")
+    # compute_max_return_random_return(base_env="ML1-sweep-v2")
+    compute_max_return_random_return(base_env="ML10")
+
+    # verify
     #load_return_info('ML1-pick-place-v2', verbose=True)
+    #load_return_info('ML1-reach-v2', verbose=True)
+    #load_return_info('ML1-sweep-v2', verbose=True)
      

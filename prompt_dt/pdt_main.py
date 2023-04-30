@@ -142,11 +142,11 @@ def experiment_mix_env(config_filename, mode):
     test_prompt_mode = variant['test_prompt_mode']
 
     # load training dataset 
-    train_trajectories_list, train_prompt_trajectories_list, train_trajectory_num, train_prompt_trajectory_num = load_data_prompt(train_env_name_list, data_path, train_dataset_mode, train_prompt_mode, base_env)
+    train_trajectories_list, train_prompt_trajectories_list, train_trajectory_num, train_prompt_trajectory_num = load_data_prompt(train_env_name_list, data_path, train_dataset_mode, train_prompt_mode)
     # load test dataset 
     # test_trajectories are for test time finetune only
     # test_prompt_trajectories are for test time prompt
-    test_trajectories_list, test_prompt_trajectories_list, test_trajectory_num, test_prompt_trajectory_num = load_data_prompt(test_env_name_list, data_path, test_dataset_mode, test_prompt_mode, base_env)
+    test_trajectories_list, test_prompt_trajectories_list, test_trajectory_num, test_prompt_trajectory_num = load_data_prompt(test_env_name_list, data_path, test_dataset_mode, test_prompt_mode)
 
     print("======> Loaded train trajectories: %d"%(get_total_num_trajectory(train_trajectory_num)))
     print(train_trajectory_num)
