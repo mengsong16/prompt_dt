@@ -15,14 +15,45 @@ from metaworld.envs import (ALL_V2_ENVIRONMENTS_GOAL_OBSERVABLE,
 
 """ constructing envs """
 def load_train_test_env_name_list(env_name):
-    task_config = os.path.join(task_config_path, config_path_dict[env_name])
-    with open(task_config, 'r') as f:
+    if "ML10" in env_name:
+        return load_train_test_env_name_list_multitask(base_env="ML10")
+    else:
+        return load_train_test_env_name_list_single_task(env_name)
+
+def load_train_test_env_name_list_single_task(env_name):
+    task_config_load_path = os.path.join(task_config_path, config_path_dict[env_name])
+    with open(task_config_load_path, 'r') as f:
         task_config = json.load(f, object_hook=lambda d: namedtuple('X', d.keys())(*d.values()))
     train_env_name_list, test_env_name_list = [], []
     for task_ind in task_config.train_tasks:
         train_env_name_list.append(env_name +'-'+ str(task_ind))
     for task_ind in task_config.test_tasks:
         test_env_name_list.append(env_name +'-'+ str(task_ind))
+    
+    print("======================== training envs:%d =============================="%(len(train_env_name_list)))
+    print(train_env_name_list)
+    print("======================== test envs: %d ================================"%(len(test_env_name_list)))
+    print(test_env_name_list)
+    
+    return train_env_name_list, test_env_name_list
+
+# for ML10
+def load_train_test_env_name_list_multitask(base_env):
+    ml10 = metaworld.ML10(seed=1)
+    env_names = [] 
+    for env_name, env_cls in ml10.train_classes.items():
+        env_names.append(f'{base_env}-{env_name}')
+    
+    train_env_name_list, test_env_name_list = [], []
+    for env_name in env_names:
+        task_config_load_path = os.path.join(task_config_path, env_name, f'{env_name}-50.json')
+        with open(task_config_load_path, 'r') as f:
+            task_config = json.load(f, object_hook=lambda d: namedtuple('X', d.keys())(*d.values()))
+    
+            for task_ind in task_config.train_tasks:
+                train_env_name_list.append(env_name +'-'+ str(task_ind))
+            for task_ind in task_config.test_tasks:
+                test_env_name_list.append(env_name +'-'+ str(task_ind))
     
     print("======================== training envs:%d =============================="%(len(train_env_name_list)))
     print(train_env_name_list)
@@ -152,7 +183,7 @@ def get_env_goal(env_name, env):
         env_goal = env._goal_vel
     elif "ant_dir" in env_name:
         env_goal = env._goal
-    elif "walker_params" in env_name:
+    elif "walker_param" in env_name:
         env_goal = env.get_goal_vector()
     else:
         print("Error: undefined environment name")
@@ -883,5 +914,8 @@ def append_return_info(train_info, test_info, train_env_name_list, test_env_name
 
 if __name__ == '__main__':
     # ['cheetah_dir', 'cheetah_vel', 'ant_dir', 'ML1-pick-place-v2']
-    #compute_max_return_random_return(base_env="ML1-pick-place-v2") 
-    load_return_info('ML1-pick-place-v2', verbose=True)
+    compute_max_return_random_return(base_env="ML1-pick-place-v2") 
+    compute_max_return_random_return(base_env="ML1-reach-v2")
+    compute_max_return_random_return(base_env="ML1-sweep-v2")
+    #load_return_info('ML1-pick-place-v2', verbose=True)
+     

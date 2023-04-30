@@ -48,7 +48,7 @@ def create_env(env_name, config_save_path):
         # env._goal = 1.2033605945679715
         # include_goal = False: do not include goal in observations
         env = AntDirEnv(tasks, len(tasks), include_goal = False)
-    elif 'walker_params' in env_name:
+    elif 'walker_param' in env_name:
         env = WalkerRandParamsWrappedEnv(n_tasks=50)
         env.set_task_idx(0)
     elif 'ML1-' in env_name: # metaworld ML1
@@ -491,7 +491,7 @@ def check_max_ep_len():
     #base_env = 'cheetah_dir' #200
     #base_env = 'cheetah_vel' #200
     #base_env = 'ant_dir' #200
-    #base_env = 'walker_params' #200
+    #base_env = 'walker_param' #200
 
 
     for i in range(1):
