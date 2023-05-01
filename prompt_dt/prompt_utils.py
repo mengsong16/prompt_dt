@@ -3,9 +3,9 @@ import gym
 import json, pickle, random, os, torch
 from collections import namedtuple
 from prompt_dt.utils.path import *
-
+from tqdm import tqdm
 # for mujoco tasks
-from mujoco_control_envs.mujoco_control_envs import HalfCheetahDirEnv, HalfCheetahVelEnv, AntDirEnv
+from mujoco_control_envs.mujoco_control_envs import HalfCheetahDirEnv, HalfCheetahVelEnv, AntDirEnv, WalkerRandParamsWrappedEnv
 # for jacopinpad
 from jacopinpad.jacopinpad_gym import jacopinpad_multi
 # for metaworld
@@ -96,6 +96,19 @@ def gen_env(env_name, config_save_path):
             tasks.append(task_info[0])
         # include_goal = False: do not include goal in observations
         env = AntDirEnv(tasks, len(tasks), include_goal = False)
+        max_ep_len = env._max_episode_steps #200
+        env_targets = [500]
+        scale = 500.
+    elif 'walker_param' in env_name:
+        task_idx = int(env_name.split('-')[-1])
+        task_paths = f"{config_save_path}/walker_param/config_walker_param_task{task_idx}.pkl"
+        tasks = []
+        with open(task_paths.format(task_idx), 'rb') as f:
+            task_info = pickle.load(f)
+            assert len(task_info) == 1, f'Unexpected task info: {task_info}'
+            tasks.append(task_info[0])
+        # include_goal = False: do not include goal in observations
+        env = WalkerRandParamsWrappedEnv(tasks, include_goal = False)
         max_ep_len = env._max_episode_steps #200
         env_targets = [500]
         scale = 500.
@@ -732,11 +745,11 @@ def load_data_prompt(env_name_list, data_save_path, dataset, prompt_mode):
     trajectories_list = [] # a list of trajectory list, each trajectory list comes from a specific environment
     prompt_trajectories_list = [] # a list of trajectory list, each trajectory list comes from a specific environment
 
-    base_env = '-'.join(env_name_list[0].split('-')[:-1])
-
     trajectory_num = {}
     prompt_trajectory_num = {}
     for env_name in env_name_list:
+        base_env = '-'.join(env_name.split('-')[:-1])
+
         dataset_path = data_save_path+f'/{base_env}/{env_name}-{dataset}.pkl'
         with open(dataset_path, 'rb') as f:
             trajectories = pickle.load(f)
@@ -825,7 +838,7 @@ def compute_max_return_random_return_for_one_dataset(env_name_list):
     trajectories_list, prompt_trajectories_list, trajectory_num, prompt_trajectory_num = load_data_prompt(env_name_list, data_path, 'expert', 'expert')
 
     # for each environment, get max return from expert dataset
-    for i, env_name in enumerate(env_name_list):
+    for i, env_name in tqdm(enumerate(env_name_list)):
         return_info[env_name] = {}
         # trajectories from current environment
         cur_trajectories = trajectories_list[i]
@@ -842,7 +855,7 @@ def compute_max_return_random_return_for_one_dataset(env_name_list):
     
     # for each environment, get random return by running for 100 episodes
     num_eval_episodes = 100
-    for i, env_name in enumerate(env_name_list):
+    for i, env_name in tqdm(enumerate(env_name_list)):
         env = env_list[i]
         max_ep_len = env_info[env_name]['max_ep_len']
         cur_random_returns = []

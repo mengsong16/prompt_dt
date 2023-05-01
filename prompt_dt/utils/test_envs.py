@@ -49,8 +49,19 @@ def create_env(env_name, config_save_path):
         # include_goal = False: do not include goal in observations
         env = AntDirEnv(tasks, len(tasks), include_goal = False)
     elif 'walker_param' in env_name:
-        env = WalkerRandParamsWrappedEnv(n_tasks=50)
-        env.set_task_idx(0)
+        #env = WalkerRandParamsWrappedEnv(n_tasks=50)
+        #env.set_task_idx(0)
+        task_idx = int(env_name.split('-')[-1])
+        task_paths = f"{config_save_path}/walker_param/config_walker_param_task{task_idx}.pkl"
+        tasks = []
+        with open(task_paths.format(task_idx), 'rb') as f:
+            task_info = pickle.load(f)
+            assert len(task_info) == 1, f'Unexpected task info: {task_info}'
+            tasks.append(task_info[0])
+            #print(task_info)
+
+        # include_goal = False: do not include goal in observations
+        env = WalkerRandParamsWrappedEnv(tasks, include_goal = False)
     elif 'ML1-' in env_name: # metaworld ML1
         task_name = '-'.join(env_name.split('-')[1:-1])
         # construct the benchmark
@@ -104,7 +115,8 @@ def create_env_list(env_name_list, config_save_path):
 
 def test_envs(render):
     # 'ant_dir-0', 'cheetah_vel-0', 'cheetah_dir-0', 'ML1-pick-place-v2-0', "ML10-pick-place-v2-0"
-    env_name = 'ML10-pick-place-v2-0'
+    #env_name = 'ML10-pick-place-v2-0'
+    env_name = 'walker_param-1'
     env = create_env(env_name=env_name, config_save_path=task_config_path)
     if "ML1" in env_name or "ML10" in env_name:
         max_ep_len = env.max_path_length #500
@@ -115,7 +127,6 @@ def test_envs(render):
     np.set_printoptions(suppress=True)
     # set print precision
     np.set_printoptions(precision=2)
-
 
     for episode in range(100):
         print("--------------------------------------")
@@ -157,9 +168,15 @@ def print_type_shape(traj):
         print(traj[key].dtype)
         print(traj[key].shape)
 
-def check_expert_trajectory():
+def check_trajectory(quality, prompt):
+    env_name = 'cheetah_dir-0'
+    base_env = 'cheetah_dir'
+
     # env_name = 'cheetah_vel-0'
     # base_env = 'cheetah_vel'
+
+    # env_name = 'ant_dir-0'
+    # base_env = 'ant_dir'
 
     # env_name = 'ML1-pick-place-v2-0'
     # base_env = 'ML1-pick-place-v2'
@@ -176,8 +193,8 @@ def check_expert_trajectory():
     # env_name = 'ML10-pick-place-v2-0'
     # base_env = 'ML10-pick-place-v2'
 
-    env_name = 'ML10-peg-insert-side-v2-45'
-    base_env = 'ML10-peg-insert-side-v2'
+    # env_name = 'ML10-peg-insert-side-v2-45'
+    # base_env = 'ML10-peg-insert-side-v2'
 
     env = create_env(env_name=env_name, config_save_path=task_config_path)
     if "ML1" in env_name or "ML10" in env_name:
@@ -186,7 +203,10 @@ def check_expert_trajectory():
         max_ep_len = env._max_episode_steps #200
 
     # load expert trajectory
-    dataset_path = data_path+f'/{base_env}/{env_name}-expert.pkl'
+    if prompt:
+        dataset_path = data_path+f'/{base_env}/{env_name}-prompt-{quality}.pkl'
+    else:
+        dataset_path = data_path+f'/{base_env}/{env_name}-{quality}.pkl'
     with open(dataset_path, 'rb') as f:
         expert_trajectories = pickle.load(f)
 
@@ -248,7 +268,7 @@ def check_expert_trajectory():
     if "ML1" in env_name or "ML10" in env_name:
         assert (expert_traj["observations"][-1][-3:] == np.zeros(3)).all()
     
-    exit()
+    #exit()
 
     print("================= Compare r0 ==================")
     print(env_traj["rewards"][0])
@@ -306,11 +326,11 @@ def test_walker():
 
         # print max episode steps
         max_episode_steps = env._max_episode_steps
-        print('-----------------------------')
-        print("Max episode steps: ", max_episode_steps)
-        print("Observation space: ", env.observation_space)
-        print("Action space: ", env.action_space)
-        #print("Goal: ", get_env_goal(env_name, env))
+        # print('-----------------------------')
+        # print("Max episode steps: ", max_episode_steps)
+        # print("Observation space: ", env.observation_space)
+        # print("Action space: ", env.action_space)
+        # #print("Goal: ", get_env_goal(env_name, env))
         print('-----------------------------')
         #print("="*80)
         #print(env.unwrapped._max_episode_steps)
@@ -318,11 +338,14 @@ def test_walker():
 
         
         # test in current env for N steps
+        ret = 0
         for step in range(max_episode_steps):
-            env.render()
+            #env.render()
             # take a random action
-            env.step(env.action_space.sample())
+            obs, reward, done, info = env.step(env.action_space.sample())
+            ret += reward
             #print(step)  
+        print(f'Task: {task_id} Return: {ret}')
 
 def test_ml10():
     ml10 = metaworld.ML10(seed=1) # Construct the benchmark, sampling tasks
@@ -506,11 +529,11 @@ def check_max_ep_len():
 
 
 if __name__ == '__main__':
-    #test_envs(render=True)
+    test_envs(render=True)
     #test_walker()
     #test_ml10()
-    #check_expert_trajectory()
+    #check_trajectory(quality='expert', prompt=False)
     #test_ml10_name()
-    visualize_expert_trajectory()
+    #visualize_expert_trajectory()
     #check_max_ep_len()
 

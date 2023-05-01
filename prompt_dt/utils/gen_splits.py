@@ -17,7 +17,18 @@ def gen_train_test_split_single_task(base_env, seed, total_task_num: int, test_t
     # split single task
     total_tasks_indices = list(range(total_task_num))
     # uniformly sample without replacement
-    test_task_indices = random.sample(total_tasks_indices, k=test_task_num)
+    #test_task_indices = random.sample(total_tasks_indices, k=test_task_num)
+    interval = int(total_task_num // test_task_num)
+    test_task_indices = []
+    start = 0
+    for i in range(test_task_num):
+        sample_range = list(range(start, start+interval))
+        cur_sample = np.random.choice(sample_range, 1, replace=False)[0]
+        # from int64 to int32
+        cur_sample = int(cur_sample)
+        test_task_indices.append(cur_sample)
+        start += interval
+    
     train_task_indices = list(set(total_tasks_indices) - set(test_task_indices))
     task_config["train_tasks"] = train_task_indices
     task_config["test_tasks"] = test_task_indices
@@ -63,5 +74,10 @@ if __name__ == '__main__':
     #gen_train_test_split_single_task(base_env="ML1-sweep-v2", seed=2, total_task_num=50, test_task_num=5)
     #train_env_name_list, test_env_name_list = load_train_test_env_name_list(env_name="ML1-sweep-v2") # verify
 
+    #gen_train_test_split_single_task(base_env="walker_param", seed=6, total_task_num=50, test_task_num=5)
+    train_env_name_list, test_env_name_list = load_train_test_env_name_list(env_name="walker_param") # verify
+
     #gen_train_test_split_multitask(base_env="ML10", total_task_num=50, test_task_num=5)
-    train_env_name_list, test_env_name_list = load_train_test_env_name_list(env_name="ML10") # verify
+    #train_env_name_list, test_env_name_list = load_train_test_env_name_list(env_name="ML10") # verify
+    
+    
