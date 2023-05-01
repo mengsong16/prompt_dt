@@ -119,7 +119,7 @@ def test_envs(render):
     env_name = 'walker_param-1'
     env = create_env(env_name=env_name, config_save_path=task_config_path)
     if "ML1" in env_name or "ML10" in env_name:
-        max_ep_len = env.max_path_length #500
+        max_ep_len = env.max_path_length+1 #500
     else:
         max_ep_len = env._max_episode_steps #200
 
@@ -198,7 +198,7 @@ def check_trajectory(quality, prompt):
 
     env = create_env(env_name=env_name, config_save_path=task_config_path)
     if "ML1" in env_name or "ML10" in env_name:
-        max_ep_len = env.max_path_length #500
+        max_ep_len = env.max_path_length+1 #500
     else:
         max_ep_len = env._max_episode_steps #200
 
@@ -378,7 +378,7 @@ def test_ml10():
         print('-----------------------------')
         print("Testing ", env_name)
         #print("Max episode steps: ", env._max_episode_steps)
-        print("Max episode steps: ", env.max_path_length)
+        print("Max episode steps: ", env.max_path_length+1)
         print("Observation space: ", env.observation_space)
         print("Action space: ", env.action_space)
         #print("Goal: ", get_env_goal(env_name, env))
@@ -387,7 +387,7 @@ def test_ml10():
         # test in current env for N steps
         #max_episode_steps
         obs = env.reset()
-        for step in range(env.max_path_length):
+        for step in range(env.max_path_length+1):
             # take a random action
             obs, reward, done, info = env.step(env.action_space.sample())
             
@@ -439,33 +439,42 @@ def visualize_expert_trajectory():
     # env_name = 'cheetah_vel-0'
     # base_env = 'cheetah_vel'
 
-    # env_name = 'ML1-pick-place-v2-1'
+    # env_name = 'ML1-pick-place-v2-0'
     # base_env = 'ML1-pick-place-v2'
 
     # env_name = 'ML1-reach-v2-1'
     # base_env = 'ML1-reach-v2'
 
-    # env_name = 'ML10-pick-place-v2-36'
+    # env_name = 'ML10-pick-place-v2-0'
     # base_env = 'ML10-pick-place-v2'
 
     # env_name = 'ML10-reach-v2-30'
     # base_env = 'ML10-reach-v2'
 
-    # env_name = 'ML10-drawer-close-v2-1'
+    # env_name = 'ML10-drawer-close-v2-0'
     # base_env = 'ML10-drawer-close-v2'
 
-    # env_name = 'ML10-sweep-v2-38'
+    # env_name = 'ML10-sweep-v2-0'
     # base_env = 'ML10-sweep-v2'
 
-    # env_name = 'ML10-peg-insert-side-v2-6'
+    # env_name = 'ML10-push-v2-0'
+    # base_env = 'ML10-push-v2'
+
+    # env_name = 'ML10-window-open-v2-0'
+    # base_env = 'ML10-window-open-v2'
+
+    env_name = 'ML10-basketball-v2-0'
+    base_env = 'ML10-basketball-v2'
+
+    # env_name = 'ML10-peg-insert-side-v2-0'
     # base_env = 'ML10-peg-insert-side-v2'
 
-    env_name = 'ML10-door-open-v2-26'
-    base_env = 'ML10-door-open-v2'
+    # env_name = 'ML10-door-open-v2-0'
+    # base_env = 'ML10-door-open-v2'
 
     env = create_env(env_name=env_name, config_save_path=task_config_path)
     if "ML1" in env_name or "ML10" in env_name:
-        max_ep_len = env.max_path_length #500
+        max_ep_len = env.max_path_length+1 #500
     else:
         max_ep_len = env._max_episode_steps #200
 
@@ -495,7 +504,7 @@ def visualize_expert_trajectory():
             if done: 
                 break
                         
-        #assert done == True
+        assert done == True
         print('Total timesteps: %d'%(i+1))
         #break
 
@@ -522,18 +531,18 @@ def check_max_ep_len():
         env = create_env(env_name=env_name, config_save_path=task_config_path)
         # not always 500
         if 'ML1' in env_name or 'ML10' in env_name:
-            print(env.max_path_length)
+            print(env.max_path_length+1)
         else:
             print(env._max_episode_steps)
     
 
 
 if __name__ == '__main__':
-    test_envs(render=True)
+    #test_envs(render=True)
     #test_walker()
     #test_ml10()
     #check_trajectory(quality='expert', prompt=False)
     #test_ml10_name()
-    #visualize_expert_trajectory()
+    visualize_expert_trajectory()
     #check_max_ep_len()
 

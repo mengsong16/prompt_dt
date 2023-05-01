@@ -128,7 +128,7 @@ def gen_env(env_name, config_save_path):
         
         # set task
         env.set_task(task)  
-        max_ep_len = env.max_path_length #500 or 100
+        max_ep_len = env.max_path_length+1 #500 or 100
         env_targets = [650]
         scale = 650.
     elif 'ML10-' in env_name: # metaworld ML10
@@ -154,7 +154,7 @@ def gen_env(env_name, config_save_path):
         # set task
         env.set_task(task)
         
-        max_ep_len = env.max_path_length #500 or 100
+        max_ep_len = env.max_path_length+1 #500 or 100
         env_targets = [650]
         scale = 650.
     else:
@@ -822,8 +822,13 @@ def compute_max_return_random_return(base_env):
     print("-"*80)
     
     # save
+    save_folder = os.path.join(data_path, base_env)
+    if not os.path.exists(save_folder):
+            os.makedirs(save_folder)
+
     filename = base_env + "-return-info.pkl"
-    save_path = os.path.join(data_path, base_env, filename)
+    save_path = os.path.join(save_folder, filename)
+
     with open(save_path, 'wb') as f:
         pickle.dump(return_info, f)
 

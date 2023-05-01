@@ -443,8 +443,8 @@ class SawyerXYZEnv(SawyerMocapBase, metaclass=abc.ABCMeta):
         if self.curr_path_length > self.max_path_length:
             done = True
         # done at the first success
-        if bool(info['success']) == True:
-            done = True
+        # if bool(info['success']) == True:
+        #     done = True
 
         return self._last_stable_obs, reward, done, info
         

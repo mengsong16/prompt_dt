@@ -51,7 +51,7 @@ def generate_one_subtask(env, policy, env_name, subtask_idx, input_traj_per_subt
         zero_out_obs[-3:] = np.zeros(3)
         cur_traj['observations'].append(zero_out_obs)
         
-        for step in range(env.max_path_length): # max path length = 500 from https://github.com/Farama-Foundation/Metaworld/blob/master/metaworld/envs/mujoco/mujoco_env.py
+        for step in range(env.max_path_length+1): 
             # no noise added to the action
             action = policy.get_action(obs)
             obs, reward, done, info = env.step(action)
@@ -80,12 +80,13 @@ def generate_one_subtask(env, policy, env_name, subtask_idx, input_traj_per_subt
         for key in cur_traj.keys():
             cur_traj[key] = np.array(cur_traj[key])
         
-        # check unsuccessful trajectories
-        if cur_traj['terminals'][-1] == False or bool(cur_traj['success'][-1]) == False:
-            print(f"{env_name}-{subtask_idx}-{traj_ind}: Unsuccessful trajectory!")
+        # check undone trajectories
+        #if cur_traj['terminals'][-1] == False or bool(cur_traj['success'][-1]) == False:
+        if cur_traj['terminals'][-1] == False:
+            print(f"Warning: {env_name}-{subtask_idx}-{traj_ind}: Undone trajectory!")
             print("Trajectory length: ", cur_traj['actions'].shape[0])
             print("Done: ", cur_traj['terminals'][-1])
-            print("Success: ", cur_traj['success'][-1])
+            #print("Success: ", cur_traj['success'][-1])
         
         # add to the pool
         input_trajectories.append(cur_traj)
@@ -173,10 +174,11 @@ def generate_ml10():
             generate_one_subtask(env, policy, env_name, subtask_idx, input_traj_per_subtask, prompt_traj_per_subtask)
             # save subtask
             save_subtask(subtask, env_name, subtask_idx)
+
         
     print("Done!")
 
-### ---------- test scripted policy -------------
+### ---------- test scripted policy copied from metaworld repo -------------
 def trajectory_summary(env, policy, act_noise_pct, render=False, end_on_success=True):
     """Tests whether a given policy solves an environment
     Args:
@@ -238,7 +240,7 @@ def trajectory_generator(env, policy, act_noise_pct, render=False):
     assert o.shape == env.observation_space.shape
     assert env.observation_space.contains(o), obs_space_error_text(env, o)
 
-    for _ in range(env.max_path_length):
+    for _ in range(env.max_path_length): # env.max_path_length+1?
         a = policy.get_action(o)
         a = np.random.normal(a, act_noise_pct * action_space_ptp)
 
@@ -282,6 +284,8 @@ def test_scripted_policy():
     policy = SawyerReachV2Policy()
     summary = trajectory_summary(env, policy, act_noise_pct=0, render=False)
     print(summary[0])
+
+### -------------------------------------------------------------
 
 if __name__ == '__main__':
     generate_ml10()

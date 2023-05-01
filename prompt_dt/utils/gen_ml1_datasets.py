@@ -51,7 +51,7 @@ def generate_one_subtask(env, policy, env_name, subtask_idx, input_traj_per_subt
         zero_out_obs[-3:] = np.zeros(3)
         cur_traj['observations'].append(zero_out_obs)
         
-        for step in range(env.max_path_length): # max path length = 500 from https://github.com/Farama-Foundation/Metaworld/blob/master/metaworld/envs/mujoco/mujoco_env.py
+        for step in range(env.max_path_length+1): 
             # no noise added to the action
             action = policy.get_action(obs)
             obs, reward, done, info = env.step(action)
@@ -80,12 +80,13 @@ def generate_one_subtask(env, policy, env_name, subtask_idx, input_traj_per_subt
         for key in cur_traj.keys():
             cur_traj[key] = np.array(cur_traj[key])
         
-        # check unsuccessful trajectories
-        if cur_traj['terminals'][-1] == False or bool(cur_traj['success'][-1]) == False:
-            print(f"{env_name}-{subtask_idx}-{traj_ind}: Unsuccessful trajectory!")
+        # check undone trajectories
+        #if cur_traj['terminals'][-1] == False or bool(cur_traj['success'][-1]) == False:
+        if cur_traj['terminals'][-1] == False:
+            print(f"Warning: {env_name}-{subtask_idx}-{traj_ind}: Undone trajectory!")
             print("Trajectory length: ", cur_traj['actions'].shape[0])
             print("Done: ", cur_traj['terminals'][-1])
-            print("Success: ", cur_traj['success'][-1])
+            #print("Success: ", cur_traj['success'][-1])
         
         # add to the pool
         input_trajectories.append(cur_traj)
@@ -176,7 +177,7 @@ def test_scripted_policy(env_name):
     env._partially_observable = False
 
     obs = env.reset()
-    for step in range(env.max_path_length): # max path length = 500 from https://github.com/Farama-Foundation/Metaworld/blob/master/metaworld/envs/mujoco/mujoco_env.py
+    for step in range(env.max_path_length+1): 
         # no noise added to the action
         action = policy.get_action(obs)
         obs, reward, done, info = env.step(action)
@@ -188,16 +189,14 @@ def test_scripted_policy(env_name):
         #     done = True
         
         if done:
-            assert ((step ==  env.max_path_length - 1) or bool(success)), "Error: should done when max steps are reached or succeeded"
             break
 
+    assert done == True
     print('Total timesteps: %d'%(step+1))      
 
 if __name__ == '__main__':
     generate_ml1('pick-place-v2')
-    generate_ml1('reach-v2')
-    generate_ml1('sweep-v2')
+    generate_ml1('push-v2')
 
-    #test_scripted_policy('reach-v2')
     #test_scripted_policy('pick-place-v2')
-    #test_scripted_policy('sweep-v2')
+    #test_scripted_policy('push-v2')
