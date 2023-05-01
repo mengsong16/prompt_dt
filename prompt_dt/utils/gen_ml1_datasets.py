@@ -195,8 +195,9 @@ def test_scripted_policy(env_name):
     print('Total timesteps: %d'%(step+1))      
 
 if __name__ == '__main__':
-    generate_ml1('pick-place-v2')
-    generate_ml1('push-v2')
+    # generate_ml1('pick-place-v2')
+    # generate_ml1('push-v2')
+    generate_ml1('reach-v2')
 
     #test_scripted_policy('pick-place-v2')
     #test_scripted_policy('push-v2')

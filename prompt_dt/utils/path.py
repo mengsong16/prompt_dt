@@ -1,5 +1,6 @@
 import os
 
+# Only for MACAW
 config_path_dict = {
     'cheetah_vel': "cheetah_vel/cheetah_vel-40.json",
     'cheetah_dir': "cheetah_dir/cheetah_dir-2.json",

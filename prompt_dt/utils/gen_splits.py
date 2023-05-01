@@ -37,7 +37,10 @@ def gen_train_test_split_single_task(base_env, seed, total_task_num: int, test_t
     # for multi task, refer to given path
     # assume the task_config folder already exists
     if save_path is None:
-        save_task_config_path = os.path.join(task_config_path, config_path_dict[base_env])
+        if "ML1" in base_env or "ML10" in base_env:
+            save_task_config_path = os.path.join(task_config_path, base_env, f'{base_env}-50.json')
+        else:
+            save_task_config_path = os.path.join(task_config_path, config_path_dict[base_env])
     else:
         save_task_config_path = os.path.join(task_config_path, save_path)
 
@@ -66,7 +69,7 @@ def gen_train_test_split_multitask(base_env, total_task_num: int, test_task_num:
 
 
 if __name__ == '__main__':
-    # use different seed for different base env
+    # Must use different seeds for different base envs
 
     # gen_train_test_split_single_task(base_env="ML1-pick-place-v2", seed=1, total_task_num=50, test_task_num=5)
     # train_env_name_list, test_env_name_list = load_train_test_env_name_list(env_name="ML1-pick-place-v2") # verify
@@ -78,6 +81,10 @@ if __name__ == '__main__':
     # train_env_name_list, test_env_name_list = load_train_test_env_name_list(env_name="walker_param") # verify
 
     # gen_train_test_split_multitask(base_env="ML10", total_task_num=50, test_task_num=5)
-    train_env_name_list, test_env_name_list = load_train_test_env_name_list(env_name="ML10") # verify
+    # train_env_name_list, test_env_name_list = load_train_test_env_name_list(env_name="ML10") # verify
+
+    gen_train_test_split_single_task(base_env="ML1-reach-v2", seed=8, total_task_num=50, test_task_num=5)
+    train_env_name_list, test_env_name_list = load_train_test_env_name_list(env_name="ML1-reach-v2") # verify
+
     
     

@@ -15,7 +15,11 @@ from prompt_dt.utils.path import *
 
 # split: ["train", "test"]
 def load_env_name_list(base_env_name, split):
-    task_config = os.path.join(task_config_path, config_path_dict[base_env_name])
+    if "ML1" in base_env_name or "ML10" in base_env_name:
+        task_config = os.path.join(task_config_path, base_env_name, f'{base_env_name}-50.json')
+    else: # MACAW
+        task_config = os.path.join(task_config_path, config_path_dict[base_env_name])
+    
     with open(task_config, 'r') as f:
         task_config = json.load(f, object_hook=lambda d: namedtuple('X', d.keys())(*d.values()))
     

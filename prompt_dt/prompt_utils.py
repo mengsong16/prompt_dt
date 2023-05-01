@@ -924,7 +924,7 @@ def load_return_info_multitask(base_env, verbose=False):
     return_info = {}
     for env_name in env_names:
         print("======================== %s ======================== "%env_name)
-        cur_return_info = load_return_info_single_task(base_env, verbose)
+        cur_return_info = load_return_info_single_task(env_name, verbose)
         return_info.update(cur_return_info)
 
     return return_info
@@ -978,12 +978,15 @@ def append_return_info(train_info, test_info, train_env_name_list, test_env_name
 
 
 if __name__ == '__main__':
-    # ['cheetah_dir', 'cheetah_vel', 'ant_dir', 'ML1-pick-place-v2', 'ML1-push-v2', 'ML10']
-    compute_max_return_random_return(base_env="ML1-pick-place-v2") 
-    compute_max_return_random_return(base_env="ML1-push-v2")
-    #compute_max_return_random_return(base_env="ML10")
+    # ['cheetah_dir', 'cheetah_vel', 'ant_dir', 'ML1-pick-place-v2', 'ML1-push-v2', 'ML1-reach-v2', 'ML10']
+    # compute_max_return_random_return(base_env="ML1-pick-place-v2") 
+    # compute_max_return_random_return(base_env="ML1-push-v2")
+    # compute_max_return_random_return(base_env="ML10")
+    # compute_max_return_random_return(base_env="ML1-reach-v2")
 
     # verify
     #load_return_info('ML1-pick-place-v2', verbose=True)
     #load_return_info('ML1-push-v2', verbose=True)
+    #load_return_info('ML10', verbose=True)
+    load_return_info('ML1-reach-v2', verbose=True)
      
