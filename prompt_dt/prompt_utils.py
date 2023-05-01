@@ -21,7 +21,11 @@ def load_train_test_env_name_list(env_name):
         return load_train_test_env_name_list_single_task(env_name)
 
 def load_train_test_env_name_list_single_task(env_name):
-    task_config_load_path = os.path.join(task_config_path, config_path_dict[env_name])
+    if "ML1" in env_name or "ML10" in env_name:
+        task_config_load_path = os.path.join(task_config_path, env_name, f'{env_name}-50.json')
+    else: # MACAW
+        task_config_load_path = os.path.join(task_config_path, config_path_dict[env_name])
+    
     with open(task_config_load_path, 'r') as f:
         task_config = json.load(f, object_hook=lambda d: namedtuple('X', d.keys())(*d.values()))
     train_env_name_list, test_env_name_list = [], []
@@ -800,7 +804,25 @@ def discount_cumsum(x, gamma):
 
 """ return processing """
 def compute_max_return_random_return(base_env):
-    train_env_name_list, test_env_name_list = load_train_test_env_name_list(base_env)
+    if "ML10" in base_env:
+        return compute_max_return_random_return_multitask(base_env)
+    else:
+        return compute_max_return_random_return_single_task(base_env)
+
+def compute_max_return_random_return_multitask(base_env):
+    # collect tasks
+    ml10 = metaworld.ML10(seed=1)
+    env_names = [] 
+    for env_name, env_cls in ml10.train_classes.items():
+        env_names.append(f'{base_env}-{env_name}')
+    
+    for env_name in env_names:
+        print("======================== %s ======================== "%env_name)
+        compute_max_return_random_return_single_task(env_name)
+
+
+def compute_max_return_random_return_single_task(base_env):
+    train_env_name_list, test_env_name_list = load_train_test_env_name_list_single_task(base_env)
 
     # for training dataset
     print("======================== processing training envs ==============================")
@@ -808,7 +830,8 @@ def compute_max_return_random_return(base_env):
     # for test dataset
     print("======================== processing test envs ==============================")
     test_return_info = compute_max_return_random_return_for_one_dataset(test_env_name_list)
-    # combine two dictionaries
+    # combine two dictionaries: train and test
+    # thus how to split train and test does not matter
     return_info = train_return_info.copy()
     return_info.update(test_return_info)
     
@@ -885,6 +908,28 @@ def compute_max_return_random_return_for_one_dataset(env_name_list):
     return return_info
 
 def load_return_info(base_env, verbose=False):
+    if "ML10" in base_env:
+        return load_return_info_multitask(base_env, verbose)
+    else:
+        return load_return_info_single_task(base_env, verbose)
+
+# for ML10
+def load_return_info_multitask(base_env, verbose=False):
+    # collect tasks
+    ml10 = metaworld.ML10(seed=1)
+    env_names = [] 
+    for env_name, env_cls in ml10.train_classes.items():
+        env_names.append(f'{base_env}-{env_name}')
+    
+    return_info = {}
+    for env_name in env_names:
+        print("======================== %s ======================== "%env_name)
+        cur_return_info = load_return_info_single_task(base_env, verbose)
+        return_info.update(cur_return_info)
+
+    return return_info
+
+def load_return_info_single_task(base_env, verbose=False):
     # load
     filename = base_env + "-return-info.pkl"
     load_path = os.path.join(data_path, base_env, filename)
@@ -933,14 +978,12 @@ def append_return_info(train_info, test_info, train_env_name_list, test_env_name
 
 
 if __name__ == '__main__':
-    # ['cheetah_dir', 'cheetah_vel', 'ant_dir', 'ML1-pick-place-v2', 'ML1-reach-v2', 'ML1-sweep-v2', 'ML10']
-    # compute_max_return_random_return(base_env="ML1-pick-place-v2") 
-    # compute_max_return_random_return(base_env="ML1-reach-v2")
-    # compute_max_return_random_return(base_env="ML1-sweep-v2")
-    compute_max_return_random_return(base_env="ML10")
+    # ['cheetah_dir', 'cheetah_vel', 'ant_dir', 'ML1-pick-place-v2', 'ML1-push-v2', 'ML10']
+    compute_max_return_random_return(base_env="ML1-pick-place-v2") 
+    compute_max_return_random_return(base_env="ML1-push-v2")
+    #compute_max_return_random_return(base_env="ML10")
 
     # verify
     #load_return_info('ML1-pick-place-v2', verbose=True)
-    #load_return_info('ML1-reach-v2', verbose=True)
-    #load_return_info('ML1-sweep-v2', verbose=True)
+    #load_return_info('ML1-push-v2', verbose=True)
      

@@ -68,16 +68,16 @@ def gen_train_test_split_multitask(base_env, total_task_num: int, test_task_num:
 if __name__ == '__main__':
     # use different seed for different base env
 
-    #gen_train_test_split_single_task(base_env="ML1-reach-v2", seed=1, total_task_num=50, test_task_num=5)
-    #train_env_name_list, test_env_name_list = load_train_test_env_name_list(env_name="ML1-reach-v2") # verify
+    # gen_train_test_split_single_task(base_env="ML1-pick-place-v2", seed=1, total_task_num=50, test_task_num=5)
+    # train_env_name_list, test_env_name_list = load_train_test_env_name_list(env_name="ML1-pick-place-v2") # verify
 
-    #gen_train_test_split_single_task(base_env="ML1-sweep-v2", seed=2, total_task_num=50, test_task_num=5)
-    #train_env_name_list, test_env_name_list = load_train_test_env_name_list(env_name="ML1-sweep-v2") # verify
+    # gen_train_test_split_single_task(base_env="ML1-push-v2", seed=2, total_task_num=50, test_task_num=5)
+    # train_env_name_list, test_env_name_list = load_train_test_env_name_list(env_name="ML1-push-v2") # verify
 
-    #gen_train_test_split_single_task(base_env="walker_param", seed=6, total_task_num=50, test_task_num=5)
-    train_env_name_list, test_env_name_list = load_train_test_env_name_list(env_name="walker_param") # verify
+    # gen_train_test_split_single_task(base_env="walker_param", seed=6, total_task_num=50, test_task_num=5)
+    # train_env_name_list, test_env_name_list = load_train_test_env_name_list(env_name="walker_param") # verify
 
-    #gen_train_test_split_multitask(base_env="ML10", total_task_num=50, test_task_num=5)
-    #train_env_name_list, test_env_name_list = load_train_test_env_name_list(env_name="ML10") # verify
+    # gen_train_test_split_multitask(base_env="ML10", total_task_num=50, test_task_num=5)
+    train_env_name_list, test_env_name_list = load_train_test_env_name_list(env_name="ML10") # verify
     
     

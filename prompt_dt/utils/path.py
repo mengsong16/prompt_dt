@@ -5,9 +5,8 @@ config_path_dict = {
     'cheetah_dir': "cheetah_dir/cheetah_dir-2.json",
     'ant_dir': "ant_dir/ant_dir-50.json",
     "walker_param": "walker_param/walker_param-50.json",
-    'ML1-pick-place-v2': "ML1-pick-place-v2/ML1-pick-place-v2-50.json",
-    'ML1-reach-v2': "ML1-reach-v2/ML1-reach-v2-50.json",
-    'ML1-sweep-v2': "ML1-sweep-v2/ML1-sweep-v2-50.json",
+#     'ML1-pick-place-v2': "ML1-pick-place-v2/ML1-pick-place-v2-50.json",
+#     'ML1-push-v2': "ML1-push-v2/ML1-push-v2-50.json",
 }
 
 cur_path = os.path.dirname(os.path.realpath(__file__))
