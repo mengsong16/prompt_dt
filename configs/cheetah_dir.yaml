@@ -2,7 +2,7 @@
 base_env: 'cheetah_dir' # ['cheetah_dir', 'cheetah_vel', 'ant_dir', 'ML1-pick-place-v2']
 
 # project name
-project_name: 'prompt-dt-calibrated'
+project_name: 'prompt-dt-new'
 
 # extra suffix to group name
 suffix: ""
@@ -12,7 +12,7 @@ train_dataset_mode: 'expert'
 test_dataset_mode: 'expert'  # useful for test time finetune only
 train_prompt_mode: 'expert'
 test_prompt_mode: 'expert'
-reward_mode: 'delayed' # ['normal', 'delayed', 'noise']
+reward_mode: 'normal' # ['normal', 'delayed', 'noise']
 average_state_mean: true # compute state mean/std from all train+test data instead of a specific environment
 pct_traj: 1.0
 

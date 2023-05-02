@@ -1,5 +1,5 @@
 # environment
-base_env: 'cheetah_vel' # ['cheetah_dir', 'cheetah_vel', 'ant_dir', 'ML1-pick-place-v2']
+base_env: 'ML1-push-v2' # ['cheetah_dir', 'cheetah_vel', 'ant_dir', 'ML1-pick-place-v2']
 
 # project name
 project_name: 'prompt-dt-new'
@@ -47,7 +47,7 @@ per_env_batch_size: 16 # number of trajectory segments per batch in each trainin
 learning_rate: 1.0e-4
 weight_decay: 1.0e-4
 warmup_steps: 10000  # 10000 * number of environments
-max_iters:  5000 #7000
+max_iters: 5000 # 7000
 num_steps_per_iter: 10
 # test in training environments every n iterations
 train_eval_interval: 500 
@@ -60,21 +60,25 @@ num_eval_episodes: 20 #50
 # normalize state or not
 # for both train and evaluation
 # for both train trajectory and prompt trajectory 
-no_state_normalize: false
-loss_fn: "regular" #["regular", "predict_rtg", "predict_reward"]  
+no_state_normalize: false 
+loss_fn: "regular" #["regular", "predict_rtg", "predict_reward"] 
 # for both train and evaluation
 max_return_as_target_rtg: true
 compare_normalized_returns: true
 
 # evaluation
-load_path: "cheetah_vel-35-env-expert-goal_prompt-s1-20230324-033759" # where to load the model
+# where to load the model
+#load_path: "ML1-pick-place-v2-45-env-expert-goal_learned_prompt-s1-20230401-024351" 
+#load_path: "ML1-pick-place-v2-45-env-expert-goal_state_prompt-s1-20230328-173439" 
+#load_path: "ML1-pick-place-v2-45-env-expert-traj_prompt-s1-20230324-151130"
+load_path: "ML1-pick-place-v2-45-env-expert-goal_prompt-s1-20230328-123529"
 checkpoint_name: "iter-4999.pth"
 
 # seed
 seed: 1
 
 # device
-device: 'cuda:0'
+device: 'cuda:1'
 
 # log
-log_to_wandb: true
+log_to_wandb: false #true
