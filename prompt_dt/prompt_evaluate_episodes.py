@@ -192,7 +192,8 @@ def pack_eval_results_one_env_target(env_id, env_name,
 def compute_mean_std_one_base_env_multi_targets(eval_results):
     returns = {}
     episode_lengths = {}
-    base_env_name = eval_results[0]["env_name"].split('-')[0]
+    org_env_name = eval_results[0]["env_name"]
+    base_env_name = '-'.join(org_env_name.split('-')[:-1]) # do not ignore "ML1" or "ML10"
 
     # returns is a dictionary: group evaluation returns by target rtg across all environments
     # episode_lengths is a dictionary: group evaluation episode lengths by target rtg across all environments
@@ -240,7 +241,9 @@ def normalize_returns(returns, expert_return, random_return):
 
 # eval_results are from the same base env
 def compute_episode_length_normalized_score(eval_results, info):
-    base_env_name = eval_results[0]["env_name"].split('-')[0]
+    org_env_name = eval_results[0]["env_name"]
+    base_env_name = '-'.join(org_env_name.split('-')[:-1])  # do not ignore "ML1" or "ML10"
+
     all_episode_lengths = []
     all_normalized_returns = []
     for cur_env_target_results in eval_results:

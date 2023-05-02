@@ -31,7 +31,7 @@ no_rtg: false # input includes rtg or not
 # ["no_prompt", "traj_prompt", "goal_prompt", 
 # "goal_state_prompt", "goal_learned_prompt", 
 # "goal_diff_prompt", "pure_learned_prompt"]
-prompt_method: "goal_prompt" 
+prompt_method: "traj_prompt" 
 traj_prompt:
   prompt_episode: 1
   prompt_length: 2 #5 #1
@@ -75,7 +75,7 @@ checkpoint_name: "iter-4999.pth"
 seed: 1
 
 # device
-device: 'cuda:1'
+device: 'cuda:0'
 
 # log
-log_to_wandb: false #true
+log_to_wandb: true

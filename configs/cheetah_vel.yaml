@@ -77,4 +77,4 @@ seed: 1
 device: 'cuda:0'
 
 # log
-log_to_wandb: true
+log_to_wandb: false

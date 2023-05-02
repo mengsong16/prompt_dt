@@ -117,7 +117,7 @@ def gen_env(env_name, config_save_path):
         env_targets = [500]
         scale = 500.
     elif 'ML1-' in env_name: # metaworld ML1
-        task_name = '-'.join(env_name.split('-')[1:-1])
+        task_name = '-'.join(env_name.split('-')[1:-1]) # ignore ML1-
         # construct the benchmark, sampling tasks
         # note that this seed must be 1 which is used to generate the dataset
         ml1 = metaworld.ML1(task_name, seed=1) 
@@ -136,7 +136,7 @@ def gen_env(env_name, config_save_path):
         env_targets = [650]
         scale = 650.
     elif 'ML10-' in env_name: # metaworld ML10
-        task_name = '-'.join(env_name.split('-')[1:-1])
+        task_name = '-'.join(env_name.split('-')[1:-1]) # ignore ML10-
         task_idx = int(env_name.split('-')[-1])
         # construct the benchmark
         # note that this seed must be 1 which is used to generate the dataset

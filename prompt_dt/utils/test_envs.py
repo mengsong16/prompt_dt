@@ -70,6 +70,11 @@ def create_env(env_name, config_save_path):
         # construct the environment
         env = ml1.train_classes[task_name]()  
         task_idx = int(env_name.split('-')[-1])
+
+        # print(env_name) # ML1-pick-place-v2-0
+        # print(task_name) # pick-place-v2
+        # print(task_idx) # 0
+
         # task = ml1.train_tasks[task_idx]
         # load task
         task_path = os.path.join(config_save_path, f'ML1-{task_name}', f'config-ML1-{task_name}-task{task_idx}.pkl')
@@ -543,6 +548,6 @@ if __name__ == '__main__':
     #test_ml10()
     #check_trajectory(quality='expert', prompt=False)
     #test_ml10_name()
-    visualize_expert_trajectory()
-    #check_max_ep_len()
+    #visualize_expert_trajectory()
+    check_max_ep_len()
 

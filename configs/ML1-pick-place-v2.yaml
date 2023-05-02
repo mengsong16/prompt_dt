@@ -75,7 +75,7 @@ checkpoint_name: "iter-4999.pth"
 seed: 1
 
 # device
-device: 'cuda:1'
+device: 'cuda:0'
 
 # log
-log_to_wandb: true
+log_to_wandb: false
