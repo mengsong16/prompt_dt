@@ -34,7 +34,7 @@ no_rtg: false # input includes rtg or not
 prompt_method: "goal_prompt" 
 traj_prompt:
   prompt_episode: 1
-  prompt_length: 1 #5 #2
+  prompt_length: 5 #1 #2
   # if true randomly select prompt trajectory
   # otherwise prefer prompt trajectory with higher return
   stochastic_prompt: true
