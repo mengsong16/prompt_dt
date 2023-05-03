@@ -4,81 +4,189 @@ import numpy as np
 import metaworld
 from prompt_dt.utils.path import *
 import os
+import random
+from prompt_dt.utils.other import seed_other
 
-def convert_macaw(total_tasks, quality_group_size, output_path, input_path, task_name):
-    if not os.path.exists(output_path):
-        os.mkdir(output_path)
-
-    macaw_pdt_keymap = {
+macaw_pdt_keymap = {
             'obs': 'observations',
-            'next_obs': 'next_observations',
             'actions': 'actions',
             'terminals': 'terminals',
             'rewards': 'rewards'
         }
 
-    for i in tqdm(range(total_tasks)):
-        with h5py.File(f'./{input_path}/buffers_{task_name}_train_{i}_sub_task_0.hdf5', 'r') as f:
-            for quality, idx in zip(('random', 'medium', 'expert'), (0, 1, 2)):
-                # CREATE DATASETS
-                prompt_indices = None
-                num_transitions = None
-                data = {}
-                prompt_data = {}
+quality_groups = ['random', 'medium', 'expert']
 
-                for key in f.keys():
-                    # only care about these for PDT
-                    if key not in ('obs', 'actions', 'rewards', 'next_obs', 'terminals'):
-                        continue
+def gen_macaw_one_dataset(base_env, task_index, hdf5_file_path, input_traj_num, prompt_traj_num, save_quality):
+    with h5py.File(hdf5_file_path, 'r') as f:
+        # check keys and values
+        num_transitions = f['obs'].shape[0]
+        for k in macaw_pdt_keymap.keys():
+            assert k in f.keys(), f"Key error: {k} not in hdf5 keys" 
+            assert f[k].shape[0] == num_transitions, "Error: the number of transitions should be equal for all keys"
 
-                    if f[key].shape == ():
-                        continue
-                    
-                    if num_transitions == None:
-                        num_transitions = f[key].shape[0]
+        # divide transitions into different quality groups for each key 
+        data = {"random": {}, "medium": {}, "expert": {}}
 
-                    if type(prompt_indices) == type(None):
-                        prompt_indices = np.random.choice(num_transitions, size=5, replace=False)
+        # get done=True positions
+        dones = f['terminals']
+        
+        # find division locations
+        # find the first division location
+        quality_group_size = num_transitions // 3
+        for i in list(range(quality_group_size-1, 2*quality_group_size)):
+            if bool(dones[i]) == True:
+                first_cut_loc = i
+                break
+        
+        # find the second division location
+        for i in list(range(2*quality_group_size-1, num_transitions)):
+            if bool(dones[i]) == True:
+                second_cut_loc = i
+                break
+        
+        # find the third division location
+        for i in list(range(num_transitions-1, second_cut_loc, -1)):
+            if bool(dones[i]) == True:
+                third_cut_loc = i
+                break
+        
+        # print("-"*80)
+        # print(quality_group_size)
+        # print(first_cut_loc)
+        # print("-"*80)
+        # print(quality_group_size*2)
+        # print(second_cut_loc)
+        # print("-"*80)
+        # print(num_transitions)
+        # print(third_cut_loc)
+        
+        for macaw_key in macaw_pdt_keymap.keys():
+            # map to pdt key
+            pdt_key = macaw_pdt_keymap[macaw_key]
+            # divide equally into three groups based on terminals
+            data["random"][pdt_key] = np.array(f[macaw_key][:first_cut_loc+1])
+            data["medium"][pdt_key] = np.array(f[macaw_key][first_cut_loc+1:second_cut_loc+1])
+            data["expert"][pdt_key] = np.array(f[macaw_key][second_cut_loc+1:third_cut_loc+1])
+            #assert data["random"][pdt_key].shape[0] + data["medium"][pdt_key].shape[0] + data["expert"][pdt_key].shape[0] == num_transitions, "Error: transition number is wrong after division"
+        
+        # ensure that done=True at the end of each quality data
+        for quality in quality_groups:
+            assert bool(data[quality]['terminals'][-1]) == True
+        
+        # print("-"*80)
+        # print(data["random"]["observations"].shape)
+        # print(data["medium"]["observations"].shape)
+        # print(data["expert"]["observations"].shape)
+        # exit()
 
-                    pdt_key = macaw_pdt_keymap[key]
-                    if idx == 0: # first N trajectories
-                        data[pdt_key] = np.array(f[key][:quality_group_size])
-                    elif idx == 1: # middle N trajectories
-                        start_idx = (num_transitions - quality_group_size) // 2
-                        data[pdt_key] = np.array(f[key][start_idx:start_idx + quality_group_size])
-                    else: # final N trajectories
-                        data[pdt_key] = np.array(f[key][-quality_group_size:])
+        # isolate transitions into trajectories
+        trajectories = {"random": [], "medium": [], "expert": []}
+        # isolate for each quality group
+        for quality in quality_groups:
+            #cur_quality_trans_num = data[quality]['terminals'].shape[0]
 
-                    prompt_data[pdt_key] = np.array([f[key][p_idx] for p_idx in prompt_indices])
+            # convert done to bool array
+            data[quality]['terminals'] = np.array(data[quality]['terminals'], dtype=bool)
+            # find done=True locations
+            terminal_indices = (data[quality]['terminals']==True).nonzero()[0].tolist() 
+            
+            # isolate into trajectories
+            start_index = 0
+            for end_index in terminal_indices:
+                # trajectory should contain at least one transition
+                if end_index <= start_index:
+                    continue
 
-                # ISOLATE TRAJECTORIES
-                episodes = []
-                curr_episode = {}
-                for done_idx in range(len(data['terminals'])):
-                    for key in data.keys():
-                        if key not in curr_episode.keys():
-                            curr_episode[key] = []
-                        curr_episode[key].append(data[key][done_idx])
+                cur_traj = {}
+                # get current trajectory
+                for k in data[quality].keys():
+                    cur_traj[k] = data[quality][k][start_index:(end_index+1)]
+                    # each component is a numpy array
+                    cur_traj[k] = np.array(cur_traj[k])
 
-                    if data['terminals'][done_idx] == True:
-                        for key in curr_episode.keys():
-                            curr_episode[key] = np.array(curr_episode[key])
-                        episodes.append(curr_episode)
-                        curr_episode = {}
+                assert cur_traj['terminals'][-1] == True, "Error: Undone trajectory!"
+                trajectories[quality].append(cur_traj)
+                # next trajectory
+                start_index = end_index + 1
+        
+        # print out summary
+        print("Raw data")
+        for quality in quality_groups:
+            print(quality, len(trajectories[quality]))
+        
+        # extract 1000 input trajectories for each quality dataset
+        input_trajectories = {}
+        # make sure that there are enough number of trajectories
+        for quality in quality_groups:
+            assert len(trajectories[quality]) >= input_traj_num, "Not enough trajectories"
 
-                for key in curr_episode.keys():
-                    curr_episode[key] = np.array(curr_episode[key])
-                episodes.append(curr_episode) # end of dataset
-                episodes = np.array(episodes)
+        input_trajectories["random"] = trajectories["random"][:input_traj_num]
 
-                # convert prompt to array
-                prompt_data = np.array([prompt_data])
+        medium_middle_loc = len(trajectories["medium"]) // 2
+        medium_first_half_length = input_traj_num // 2
+        medium_start = medium_middle_loc - medium_first_half_length
+        medium_end = medium_start + input_traj_num
+        input_trajectories["medium"] = trajectories["medium"][medium_start:medium_end]
 
-                with open(f'./{output_path}/{task_name}-{i}-{quality}.pkl', 'wb') as g:
-                    pickle.dump(episodes, g)
+        input_trajectories["expert"] = trajectories["expert"][-input_traj_num:]
 
-                with open(f'./{output_path}/{task_name}-{i}-prompt-{quality}.pkl', 'wb') as g:
-                    pickle.dump(prompt_data, g)
+        # extract 5 prompt trajectories for each quality dataset
+        assert prompt_traj_num <= input_traj_num, "Prompt trajectories should be less than the input trajectories"
+        prompt_trajectories = {}
+        for quality in quality_groups:
+            #sample_indices = random.sample(np.arange(input_traj_num).tolist(), prompt_traj_num)
+            #print(sample_indices)
+            prompt_trajectories[quality] = random.sample(input_trajectories[quality], prompt_traj_num)
+
+        # print out summary
+        print("-"*80)
+        print("Extracted data")
+        for quality in quality_groups:
+            print(quality, len(input_trajectories[quality]))
+            print(quality, len(prompt_trajectories[quality]))
+        print("-"*80)
+
+        # dump
+        #save_folder = os.path.join(data_path, base_env)
+        save_folder = os.path.join('/home/meng/prompt-dt/macaw_data', base_env)
+        if not os.path.exists(save_folder):
+            os.makedirs(save_folder)
+
+        for quality in save_quality:
+            # dump input trajectories
+            input_traj_filename = f'{base_env}-{task_index}-{quality}.pkl'
+            input_traj_path = os.path.join(save_folder, input_traj_filename)
+            with open(input_traj_path, 'wb') as g:
+                pickle.dump(input_trajectories[quality], g)
+                print("======> Saved to ", input_traj_path)
+
+            # dump trajectory trajectories
+            prompt_traj_filename = f'{base_env}-{task_index}-prompt-{quality}.pkl'
+            prompt_traj_path = os.path.join(save_folder, prompt_traj_filename)
+            with open(prompt_traj_path, 'wb') as g:
+                pickle.dump(prompt_trajectories[quality], g)
+                print("======> Saved to ", prompt_traj_path)
+            
+
+def gen_macaw_datasets(base_env, task_num, save_quality, input_traj_num=1000, prompt_traj_num=5):
+    
+    macaw_dataset_path = "/home/meng/macaw_offline_data"
+    macaw_base_env_path = os.path.join(macaw_dataset_path, base_env)
+
+    # seed everything
+    seed_other(seed=1)
+
+    #for i in tqdm(range(task_num)):
+    for i in range(task_num):
+        hdf5_file_name = f'buffers_{base_env}_train_{i}_sub_task_0.hdf5'
+        hdf5_file_path = os.path.join(macaw_base_env_path, hdf5_file_name)
+        print(f'----------------------------- {base_env} Task: {i} -----------------------------------')
+        gen_macaw_one_dataset(base_env, i, hdf5_file_path, input_traj_num, prompt_traj_num, save_quality)
+
+        #break
+    
+    print("Done!")
+
 
 def rename_task_config():
     env_folder_name = "walker_param"
@@ -92,9 +200,8 @@ def rename_task_config():
     print("Name conversion Done!")
 
 if __name__ == '__main__':
-    # CONVERT MACAW DATA TO PDT-USABLE FORMAT
-    # task_name = 'cheetah_vel'
-    # output_path = f'data/{task_name}'
-    # input_path = 'data/cheetah_vel_macaw'
-    # convert_macaw(50, 100000, output_path, input_path, task_name)
-    rename_task_config()
+    # rename_task_config()
+
+    gen_macaw_datasets(base_env="walker_param", task_num=50, save_quality=['random', 'medium', 'expert'])
+    gen_macaw_datasets(base_env="ant_dir", task_num=50, save_quality=['random', 'medium', 'expert'])
+    gen_macaw_datasets(base_env="cheetah_vel", task_num=40, save_quality=['random', 'medium', 'expert'])

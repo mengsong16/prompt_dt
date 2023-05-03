@@ -130,11 +130,11 @@ class RandomEnv(MetaEnv, MujocoEnv):
             # print("-------------------")
             
             if param_variable.shape != param_val.shape:
-                print("Warning: shapes of new parameter value and old one do not match!")
-                print("Old shape: ", param_val.shape)
-                print("New shape: ", param_variable.shape)
+                # print("Warning: shapes of new parameter value and old one do not match!")
+                # print("Old shape: ", param_val.shape)
+                # print("New shape: ", param_variable.shape)
                 param_val = np.reshape(param_val, param_variable.shape)
-                print("Converting shape to be consistent: ", param_val.shape)
+                # print("Converting shape to be consistent: ", param_val.shape)
             
             assert param_variable.shape == param_val.shape, 'shapes of new parameter value and old one must match'
             #setattr(self.model, param, param_val)

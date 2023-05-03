@@ -983,10 +983,14 @@ if __name__ == '__main__':
     # compute_max_return_random_return(base_env="ML1-push-v2")
     # compute_max_return_random_return(base_env="ML10")
     # compute_max_return_random_return(base_env="ML1-reach-v2")
+    #compute_max_return_random_return(base_env="walker_param")
 
     # verify
     #load_return_info('ML1-pick-place-v2', verbose=True)
     #load_return_info('ML1-push-v2', verbose=True)
     #load_return_info('ML10', verbose=True)
-    load_return_info('ML1-reach-v2', verbose=True)
+    #load_return_info('ML1-reach-v2', verbose=True)
+    #load_return_info('cheetah_vel', verbose=True)
+    #load_return_info('ant_dir', verbose=True)
+    load_return_info('walker_param', verbose=True)
      

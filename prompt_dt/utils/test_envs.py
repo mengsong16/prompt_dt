@@ -174,14 +174,17 @@ def print_type_shape(traj):
         print(traj[key].shape)
 
 def check_trajectory(quality, prompt):
-    env_name = 'cheetah_dir-0'
-    base_env = 'cheetah_dir'
+    # env_name = 'cheetah_dir-0'
+    # base_env = 'cheetah_dir'
 
     # env_name = 'cheetah_vel-0'
     # base_env = 'cheetah_vel'
 
     # env_name = 'ant_dir-0'
     # base_env = 'ant_dir'
+
+    env_name = 'walker_param-0'
+    base_env = 'walker_param'
 
     # env_name = 'ML1-pick-place-v2-0'
     # base_env = 'ML1-pick-place-v2'
@@ -228,8 +231,11 @@ def check_trajectory(quality, prompt):
     obs = env.reset()
     env_traj['observations'].append(obs)
 
-    for i in range(max_ep_len): 
-    #for i in range(len(expert_traj["actions"])):
+    if "ML1" in env_name or "ML10" in env_name:
+        loop_steps = max_ep_len
+    else:
+        loop_steps = len(expert_traj["actions"])
+    for i in range(loop_steps): 
         action = expert_traj["actions"][i]
         env_traj['actions'].append(action)
 
@@ -440,9 +446,85 @@ def test_ml10_name():
     print(train_env_names[0])
     print(train_task_names[0])
 
-def visualize_expert_trajectory():
-    # env_name = 'cheetah_vel-0'
+def compare_macaw_different_quality(base_env, task_num):
+    quality_groups = ['random', 'medium', 'expert']
+
+    print(f"========================= {base_env} ============================")
+
+    for quality in quality_groups:
+        #quality = "expert"
+        ret_list = []
+        for task_id in list(range(task_num)):
+            # create current sub env
+            env = create_env(env_name=f'{base_env}-{task_id}', config_save_path=task_config_path)
+            if "ML1" in base_env or "ML10" in base_env:
+                max_ep_len = env.max_path_length+1 #500
+            else:
+                max_ep_len = env._max_episode_steps #200
+            # load demonstration trajectories from current sub env
+            data_folder_path = data_path
+            #data_folder_path = "/home/meng/prompt-dt/macaw_data"
+            dataset_path = data_folder_path + f'/{base_env}/{base_env}-{task_id}-{quality}.pkl'
+            with open(dataset_path, 'rb') as f:
+                demon_trajectories = pickle.load(f)
+            # only use the first trajectory
+            #demon_traj = demon_trajectories[0]
+            demon_traj = demon_trajectories[900]
+
+            # print(demon_traj["observations"].shape)
+            # print(demon_traj["actions"].shape)
+            # print(demon_traj["rewards"].shape)
+            # print(demon_traj["terminals"].shape)
+            # exit()
+             
+            if "ML1" in base_env or "ML10" in base_env:
+                loop_steps = max_ep_len
+            else:
+                loop_steps = len(demon_traj["actions"])
+
+            obs = env.reset()
+            cur_ret = 0
+            for i in range(loop_steps): 
+                action = demon_traj["actions"][i]
+                # print(action)
+                # exit()
+                obs, reward, done, info = env.step(action)
+                print("-"*80)
+                print(reward)
+                print(demon_traj["rewards"][i][0])
+                cur_ret += reward
+                if "ML1" in base_env or "ML10" in base_env:
+                    success = info['success']
+                    print(success)
+                
+                #env.render()
+                
+                if done: 
+                    break
+            
+            print("-"*80)
+            print(cur_ret)
+            print(demon_traj["rewards"].sum())
+            exit()
+            ret_list.append(cur_ret)
+
+            if "ML1" in base_env or "ML10" in base_env:        
+                assert done == True
+
+            #print('Total timesteps: %d'%(i+1))
+        
+        ret_list = np.array(ret_list)
+
+        #print("-"*80)
+        print(quality, np.mean(ret_list))
+        
+
+def visualize_expert_trajectory(quality="expert"):
+    # env_name = 'cheetah_vel-20'
     # base_env = 'cheetah_vel'
+
+    # env_name = 'ant_dir-30' #30
+    # base_env = 'ant_dir'
 
     # env_name = 'ML1-pick-place-v2-0'
     # base_env = 'ML1-pick-place-v2'
@@ -468,14 +550,17 @@ def visualize_expert_trajectory():
     # env_name = 'ML10-window-open-v2-0'
     # base_env = 'ML10-window-open-v2'
 
-    env_name = 'ML10-basketball-v2-0'
-    base_env = 'ML10-basketball-v2'
+    # env_name = 'ML10-basketball-v2-0'
+    # base_env = 'ML10-basketball-v2'
 
     # env_name = 'ML10-peg-insert-side-v2-0'
     # base_env = 'ML10-peg-insert-side-v2'
 
     # env_name = 'ML10-door-open-v2-0'
     # base_env = 'ML10-door-open-v2'
+
+    env_name = 'walker_param-10'
+    base_env = 'walker_param'
 
     env = create_env(env_name=env_name, config_save_path=task_config_path)
     if "ML1" in env_name or "ML10" in env_name:
@@ -484,32 +569,42 @@ def visualize_expert_trajectory():
         max_ep_len = env._max_episode_steps #200
 
     # load expert trajectory
-    dataset_path = data_path+f'/{base_env}/{env_name}-expert.pkl'
+    dataset_path = data_path+f'/{base_env}/{env_name}-{quality}.pkl'
     with open(dataset_path, 'rb') as f:
         expert_trajectories = pickle.load(f)
 
     expert_traj = expert_trajectories[0]
 
-    print("================= expert trajectory ==================")
+    print("================= demonstration trajectory ==================")
+    if "ML1" in env_name or "ML10" in env_name:
+        loop_steps = max_ep_len
+    else:
+        loop_steps = len(expert_traj["actions"])
     
     while True:
-        # env.reset()
-        # env.reset_model()
-        obs = env.reset()
-        for i in range(max_ep_len): 
-        #for i in range(len(expert_traj["actions"])): 
+        obs = env.reset() 
+        for i in range(loop_steps): 
+            # print(expert_traj["actions"].dtype)
+            # print(expert_traj["observations"].dtype)
+            # print(expert_traj["rewards"].dtype)
+            # print(expert_traj["terminals"].dtype)
+            # exit()
+            
             action = expert_traj["actions"][i]
             #print(action)
             obs, reward, done, info = env.step(action)
             if "ML1" in env_name or "ML10" in env_name:
                 success = info['success']
                 print(success)
+            
             env.render()
             
             if done: 
                 break
-                        
-        assert done == True
+
+        if "ML1" in env_name or "ML10" in env_name:        
+            assert done == True
+
         print('Total timesteps: %d'%(i+1))
         #break
 
@@ -546,8 +641,14 @@ if __name__ == '__main__':
     #test_envs(render=True)
     #test_walker()
     #test_ml10()
-    #check_trajectory(quality='expert', prompt=False)
+    #check_trajectory(quality='medium', prompt=False)
     #test_ml10_name()
-    #visualize_expert_trajectory()
-    check_max_ep_len()
+    #visualize_expert_trajectory(quality="expert")
+    #visualize_expert_trajectory(quality="medium")
+    #visualize_expert_trajectory(quality="random")
+    #check_max_ep_len()
+
+    compare_macaw_different_quality(base_env="walker_param", task_num=50)
+    #compare_macaw_different_quality(base_env="ant_dir", task_num=50)
+    #compare_macaw_different_quality(base_env="cheetah_vel", task_num=40)
 
