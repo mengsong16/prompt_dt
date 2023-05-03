@@ -183,7 +183,7 @@ def check_trajectory(quality, prompt):
     # env_name = 'ant_dir-0'
     # base_env = 'ant_dir'
 
-    env_name = 'walker_param-0'
+    env_name = 'walker_param-10'
     base_env = 'walker_param'
 
     # env_name = 'ML1-pick-place-v2-0'
@@ -192,8 +192,8 @@ def check_trajectory(quality, prompt):
     # env_name = 'ML1-reach-v2-0'
     # base_env = 'ML1-reach-v2'
 
-    # env_name = 'ML1-sweep-v2-0'
-    # base_env = 'ML1-sweep-v2'
+    # env_name = 'ML1-push-v2-0'
+    # base_env = 'ML1-push-v2'
 
     # env_name = 'ML10-reach-v2-2'
     # base_env = 'ML10-reach-v2'
@@ -235,6 +235,7 @@ def check_trajectory(quality, prompt):
         loop_steps = max_ep_len
     else:
         loop_steps = len(expert_traj["actions"])
+    
     for i in range(loop_steps): 
         action = expert_traj["actions"][i]
         env_traj['actions'].append(action)
@@ -279,42 +280,42 @@ def check_trajectory(quality, prompt):
     if "ML1" in env_name or "ML10" in env_name:
         assert (expert_traj["observations"][-1][-3:] == np.zeros(3)).all()
     
-    #exit()
+    exit()
 
     print("================= Compare r0 ==================")
     print(env_traj["rewards"][0])
     print('-'*80)
-    print(env_traj["rewards"][0])
+    print(expert_traj["rewards"][0])
     print("================= Compare rT ==================")
     print(env_traj["rewards"][-1])
     print('-'*80)
-    print(env_traj["rewards"][-1])
+    print(expert_traj["rewards"][-1])
     print("================= Compare d0 ==================")
     print(env_traj["terminals"][0])
     print('-'*80)
-    print(env_traj["terminals"][0])
+    print(expert_traj["terminals"][0])
     print("================= Compare dT ==================")
     print(env_traj["terminals"][-1])
     print('-'*80)
-    print(env_traj["terminals"][-1])
+    print(expert_traj["terminals"][-1])
     print("================= Compare a0 ==================")
     print(env_traj["actions"][0])
     print('-'*80)
-    print(env_traj["actions"][0])
+    print(expert_traj["actions"][0])
     print("================= Compare aT ==================")
     print(env_traj["actions"][-1])
     print('-'*80)
-    print(env_traj["actions"][-1])
+    print(expert_traj["actions"][-1])
 
     if 'success' in env_traj.keys():
         print("================= Compare info0 ==================")
         print(env_traj["success"][0])
         print('-'*80)
-        print(env_traj["success"][0])
+        print(expert_traj["success"][0])
         print("================= Compare infoT ==================")
         print(env_traj["success"][-1])
         print('-'*80)
-        print(env_traj["success"][-1])
+        print(expert_traj["success"][-1])
     
 
 def test_walker():
@@ -641,14 +642,14 @@ if __name__ == '__main__':
     #test_envs(render=True)
     #test_walker()
     #test_ml10()
-    #check_trajectory(quality='medium', prompt=False)
+    check_trajectory(quality='expert', prompt=False)
     #test_ml10_name()
     #visualize_expert_trajectory(quality="expert")
     #visualize_expert_trajectory(quality="medium")
     #visualize_expert_trajectory(quality="random")
     #check_max_ep_len()
 
-    compare_macaw_different_quality(base_env="walker_param", task_num=50)
+    #compare_macaw_different_quality(base_env="walker_param", task_num=50)
     #compare_macaw_different_quality(base_env="ant_dir", task_num=50)
     #compare_macaw_different_quality(base_env="cheetah_vel", task_num=40)
 

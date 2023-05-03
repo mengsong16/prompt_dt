@@ -141,8 +141,17 @@ class RandomEnv(MetaEnv, MujocoEnv):
             #self.model.body_mass = param_val
             if param == 'body_mass':
                 self.model.body_mass[:] = param_val
+                # copy_dummy = self.model.body_mass
+                # copy_dummy = np.array(copy_dummy)
+                # copy_dummy = param_val
+                # copy_dummy[0] = 7.7777
+                # self.model.body_mass = copy_dummy
             elif param == 'body_inertia':
                 self.model.body_inertia[:] = param_val
+                # copy_dummy = self.model.body_inertia
+                # copy_dummy = np.array(copy_dummy)
+                # copy_dummy = param_val
+                # self.model.body_inertia = copy_dummy
             elif param == 'dof_damping':
                 self.model.dof_damping[:] = param_val
             elif param == 'geom_friction':
@@ -162,6 +171,8 @@ class RandomEnv(MetaEnv, MujocoEnv):
         # print(self.model.dof_damping)
         # print("---------------")
         # print(self.model.geom_friction)
+        # print("====================")
+        # print(task["body_mass"])
         # exit()
 
         self.cur_params = task
