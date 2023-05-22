@@ -24,4 +24,6 @@
 **__
 **egg-info
 /prompt_dt/utils/path.py
+/prompt_dt/cvae
+/prompt_dt/utils/gen_goal_state_datasets.py
 
