@@ -2,7 +2,7 @@
 base_env: 'ML1-pick-place-v2' # ['cheetah_dir', 'cheetah_vel', 'ant_dir', 'ML1-pick-place-v2']
 
 # project name
-project_name: 'prompt-dt-new'
+project_name: 'prompt-dt-main'
 
 # extra suffix to group name
 suffix: "" #"-5_tokens" #"-1_step"
@@ -31,7 +31,7 @@ no_rtg: false # input includes rtg or not
 # ["no_prompt", "traj_prompt", "goal_prompt", 
 # "goal_state_prompt", "goal_learned_prompt", 
 # "goal_diff_prompt", "pure_learned_prompt"]
-prompt_method: "goal_prompt" 
+prompt_method: "pure_learned_prompt" 
 traj_prompt:
   prompt_episode: 1
   prompt_length: 2 #1 #5
@@ -40,14 +40,14 @@ traj_prompt:
   stochastic_prompt: true
   crop_method: "last_few" #['last_few', 'random_crop', "last_step"]
 learned_prompt: 
-  n_tokens: 5 #10
+  n_tokens: 5 #5 #10
 
 # training
 per_env_batch_size: 16 # number of trajectory segments per batch in each training environment
-learning_rate: 1.0e-4
+learning_rate: 1.0e-4 #1.0e-3 #1.0e-4
 weight_decay: 1.0e-4
 warmup_steps: 10000  # 10000 * number of environments
-max_iters: 5000 # 7000
+max_iters: 6000 #5000 # 7000
 num_steps_per_iter: 10
 # test in training environments every n iterations
 train_eval_interval: 500 
@@ -72,10 +72,10 @@ load_path: "ML1-pick-place-v2-45-env-expert-goal_prompt-s1-20230328-123529"
 checkpoint_name: "iter-4999.pth"
 
 # seed
-seed: 1
+seed: 8 #3 #9 #8 #6 #1
 
 # device
-device: 'cuda:1'
+device: 'cuda:5'
 
 # log
 log_to_wandb: true

@@ -18,7 +18,10 @@
 # **/envs/metaworld/metaworld/envs/mujoco/sawyer_xyz/*
 # !**/envs/metaworld/metaworld/envs/mujoco/sawyer_xyz/sawyer_xyz_env.py
 # !**/envs/metaworld/metaworld/envs/mujoco/env_dict.py
+#**/configs/
 **/task_config/
 **/figures/
 **__
 **egg-info
+/prompt_dt/utils/path.py
+

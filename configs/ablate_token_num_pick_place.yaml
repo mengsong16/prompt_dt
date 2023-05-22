@@ -1,5 +1,5 @@
 # environment
-base_env: 'ML1-reach-v2' # ['cheetah_dir', 'cheetah_vel', 'ant_dir', 'ML1-pick-place-v2']
+base_env: 'ML1-pick-place-v2' # ['cheetah_dir', 'cheetah_vel', 'ant_dir', 'ML1-pick-place-v2']
 
 # project name
 project_name: 'prompt-dt-main'
@@ -34,13 +34,13 @@ no_rtg: false # input includes rtg or not
 prompt_method: "goal_learned_prompt" 
 traj_prompt:
   prompt_episode: 1
-  prompt_length: 2 #5 #1
+  prompt_length: 2 #1 #5
   # if true randomly select prompt trajectory
   # otherwise prefer prompt trajectory with higher return
   stochastic_prompt: true
   crop_method: "last_few" #['last_few', 'random_crop', "last_step"]
 learned_prompt: 
-  n_tokens: 5 #5 #10
+  n_tokens: 1 #5 #10
 
 # training
 per_env_batch_size: 16 # number of trajectory segments per batch in each training environment
@@ -68,14 +68,14 @@ compare_normalized_returns: true
 
 # evaluation
 # where to load the model
-load_path: "ML1-reach-v2-45-env-expert-goal_prompt-s1-20230328-123529"
+load_path: "ML1-pick-place-v2-45-env-expert-goal_prompt-s1-20230328-123529"
 checkpoint_name: "iter-4999.pth"
 
 # seed
 seed: 8 #8 #6 #1
 
 # device
-device: 'cuda:8'
+device: 'cuda:9'
 
 # log
 log_to_wandb: true

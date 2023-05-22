@@ -2,7 +2,7 @@
 base_env: 'cheetah_dir' # ['cheetah_dir', 'cheetah_vel', 'ant_dir', 'ML1-pick-place-v2']
 
 # project name
-project_name: 'prompt-dt-new'
+project_name: 'prompt-dt-main'
 
 # extra suffix to group name
 suffix: ""
@@ -31,7 +31,7 @@ no_rtg: false # input includes rtg or not
 # ["no_prompt", "traj_prompt", "goal_prompt", 
 # "goal_state_prompt", "goal_learned_prompt", 
 # "goal_diff_prompt", "pure_learned_prompt"]
-prompt_method: "goal_prompt" 
+prompt_method: "traj_prompt" 
 traj_prompt:
   prompt_episode: 1
   prompt_length: 5 #1 #2
@@ -72,7 +72,7 @@ checkpoint_name: "iter-0.pth"
 
 
 # seed
-seed: 1
+seed: 8 #6 #1
 
 # device
 device: 'cuda:0'
