@@ -148,7 +148,7 @@ def gen_macaw_one_dataset(base_env, task_index, hdf5_file_path, input_traj_num, 
 
         # dump
         #save_folder = os.path.join(data_path, base_env)
-        save_folder = os.path.join('/home/meng/prompt-dt/macaw_data', base_env)
+        save_folder = os.path.join('~/prompt-dt/macaw_data', base_env)
         if not os.path.exists(save_folder):
             os.makedirs(save_folder)
 
@@ -170,7 +170,7 @@ def gen_macaw_one_dataset(base_env, task_index, hdf5_file_path, input_traj_num, 
 
 def gen_macaw_datasets(base_env, task_num, save_quality, input_traj_num=1000, prompt_traj_num=5):
     
-    macaw_dataset_path = "/home/meng/macaw_offline_data"
+    macaw_dataset_path = "~/macaw_offline_data"
     macaw_base_env_path = os.path.join(macaw_dataset_path, base_env)
 
     # seed everything

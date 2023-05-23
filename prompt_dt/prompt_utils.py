@@ -6,8 +6,6 @@ from prompt_dt.utils.path import *
 from tqdm import tqdm
 # for mujoco tasks
 from mujoco_control_envs.mujoco_control_envs import HalfCheetahDirEnv, HalfCheetahVelEnv, AntDirEnv, WalkerRandParamsWrappedEnv
-# for jacopinpad
-from jacopinpad.jacopinpad_gym import jacopinpad_multi
 # for metaworld
 import metaworld
 from metaworld.envs import (ALL_V2_ENVIRONMENTS_GOAL_OBSERVABLE,

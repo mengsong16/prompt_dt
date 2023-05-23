@@ -464,7 +464,6 @@ def compare_macaw_different_quality(base_env, task_num):
                 max_ep_len = env._max_episode_steps #200
             # load demonstration trajectories from current sub env
             data_folder_path = data_path
-            #data_folder_path = "/home/meng/prompt-dt/macaw_data"
             dataset_path = data_folder_path + f'/{base_env}/{base_env}-{task_id}-{quality}.pkl'
             with open(dataset_path, 'rb') as f:
                 demon_trajectories = pickle.load(f)
