@@ -1,6 +1,6 @@
 # Acute Zero-Shot Imitation Learning with Task Prompting
 
-<img src="./assets/baseline-comparison.png" width=400>
+<div align="center"> <img src="./assets/baseline-comparison.png" width=800> </div>
 
 ## Setup
 
@@ -53,7 +53,7 @@ experiment_mix_env(config_filename="yaml_file_name_specified_in_configs_dir", mo
 ```
 
 ## Results
-<img src="./assets/baseline-comparison.png" width=400>
+<div align="center"> <img src="./assets/results-table.png" width=800> </div>
 
 ## Acknowledgements
-Our code is based on [prompt-dt](https://github.com/mxu34/prompt-dt/)
+Our code is based primarily on [prompt-dt](https://github.com/mxu34/prompt-dt/)
