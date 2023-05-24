@@ -2,9 +2,9 @@ import numpy as np
 import gym
 import json, pickle, random, os, torch
 from collections import namedtuple
-from prompt_dt.prompt_utils import load_train_test_env_name_list
-from prompt_dt.utils.path import *
-from prompt_dt.prompt_utils import get_env_goal
+from task_prompt_dt.prompt_utils import load_train_test_env_name_list
+from task_prompt_dt.utils.path import *
+from task_prompt_dt.prompt_utils import get_env_goal
 
 # for mujoco tasks
 from mujoco_control_envs.mujoco_control_envs import HalfCheetahDirEnv, HalfCheetahVelEnv, AntDirEnv, WalkerRandParamsWrappedEnv

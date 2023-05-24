@@ -7,7 +7,7 @@ import torch.nn as nn
 
 import transformers
 
-from prompt_dt.trajectory_gpt2 import GPT2Model
+from task_prompt_dt.trajectory_gpt2 import GPT2Model
 
 class HeavyEncoder(nn.Module):
     def __init__(self, input_dim, output_dim,

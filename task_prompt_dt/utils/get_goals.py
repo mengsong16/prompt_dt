@@ -2,10 +2,10 @@ import gym
 import numpy as np
 import torch
 import wandb
-from prompt_dt.prompt_utils import get_env_goal, gen_env
-from prompt_dt.utils.other import parse_config, seed_other
-from prompt_dt.utils.gen_goal_state_datasets import load_env_name_list
-from prompt_dt.utils.path import *
+from task_prompt_dt.prompt_utils import get_env_goal, gen_env
+from task_prompt_dt.utils.other import parse_config, seed_other
+from task_prompt_dt.utils.gen_goal_state_datasets import load_env_name_list
+from task_prompt_dt.utils.path import *
 
 def get_goals(base_env, split):
 

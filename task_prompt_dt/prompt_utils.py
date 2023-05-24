@@ -2,7 +2,7 @@ import numpy as np
 import gym
 import json, pickle, random, os, torch
 from collections import namedtuple
-from prompt_dt.utils.path import *
+from task_prompt_dt.utils.path import *
 from tqdm import tqdm
 # for mujoco tasks
 from mujoco_control_envs.mujoco_control_envs import HalfCheetahDirEnv, HalfCheetahVelEnv, AntDirEnv, WalkerRandParamsWrappedEnv

@@ -6,7 +6,7 @@ import torch
 import time
 import os
 import pickle 
-from prompt_dt.prompt_utils import flatten_trajectory_prompt
+from task_prompt_dt.prompt_utils import flatten_trajectory_prompt
 #from gym.wrappers.monitoring.video_recorder import VideoRecorder
 
 """ evaluation """

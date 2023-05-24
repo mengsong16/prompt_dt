@@ -1,6 +1,6 @@
 from setuptools import setup, Extension, find_packages
 setup(
-   name='prompt_dt',
-   version='0.1.0',
+   name='task_prompt_dt',
+   version='1.0.0',
    packages=find_packages()
 )

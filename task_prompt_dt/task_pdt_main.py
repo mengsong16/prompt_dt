@@ -14,15 +14,15 @@ import datetime
 import shutil
 import json
 
-from prompt_dt.prompt_decision_transformer import PromptDecisionTransformer
-from prompt_dt.prompt_seq_trainer import PromptSequenceTrainer
-from prompt_dt.prompt_utils import get_env_list
-from prompt_dt.prompt_utils import get_trajectory_prompt_batch, get_trajectory_prompt, get_no_prompt_batch, get_goal_prompt_batch, get_goal_prompt, get_goal_state_prompt, get_no_prompt, get_goal_state_prompt_batch
-from prompt_dt.prompt_utils import get_total_data_mean_std, load_data_prompt, process_info, load_return_info, replace_target_return, append_return_info
-from prompt_dt.prompt_utils import load_train_test_env_name_list, get_total_num_trajectory
-from prompt_dt.utils.path import *
-from prompt_dt.utils.other import parse_config, seed_other
-from prompt_dt.prompt_evaluate_episodes import eval_episodes, save_eval_results, get_prompt_eval
+from task_prompt_dt.prompt_decision_transformer import PromptDecisionTransformer
+from task_prompt_dt.prompt_seq_trainer import PromptSequenceTrainer
+from task_prompt_dt.prompt_utils import get_env_list
+from task_prompt_dt.prompt_utils import get_trajectory_prompt_batch, get_trajectory_prompt, get_no_prompt_batch, get_goal_prompt_batch, get_goal_prompt, get_goal_state_prompt, get_no_prompt, get_goal_state_prompt_batch
+from task_prompt_dt.prompt_utils import get_total_data_mean_std, load_data_prompt, process_info, load_return_info, replace_target_return, append_return_info
+from task_prompt_dt.prompt_utils import load_train_test_env_name_list, get_total_num_trajectory
+from task_prompt_dt.utils.path import *
+from task_prompt_dt.utils.other import parse_config, seed_other
+from task_prompt_dt.prompt_evaluate_episodes import eval_episodes, save_eval_results, get_prompt_eval
 
 from collections import namedtuple
 import json, pickle, os

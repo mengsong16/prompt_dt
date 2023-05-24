@@ -3,9 +3,9 @@ import gym
 import random
 import json, pickle, random, os, torch
 import copy
-from prompt_dt.prompt_utils import get_env_goal
-from prompt_dt.utils.other import seed_other
-from prompt_dt.utils.path import *
+from task_prompt_dt.prompt_utils import get_env_goal
+from task_prompt_dt.utils.other import seed_other
+from task_prompt_dt.utils.path import *
 
 # for metaworld
 import metaworld

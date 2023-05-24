@@ -2,10 +2,10 @@ import h5py, pickle, os, random, importlib
 from tqdm import tqdm
 import numpy as np
 import metaworld
-from prompt_dt.utils.path import *
+from task_prompt_dt.utils.path import *
 import os
 import random
-from prompt_dt.utils.other import seed_other
+from task_prompt_dt.utils.other import seed_other
 
 macaw_pdt_keymap = {
             'obs': 'observations',

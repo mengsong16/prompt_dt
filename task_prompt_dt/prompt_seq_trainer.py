@@ -5,7 +5,7 @@ import numpy as np
 import torch
 import time
 from wandb import env
-from prompt_dt.prompt_evaluate_episodes import pack_eval_results_one_env_target, compute_mean_std_one_base_env_multi_targets, compute_episode_length_normalized_score, get_prompt_eval
+from task_prompt_dt.prompt_evaluate_episodes import pack_eval_results_one_env_target, compute_mean_std_one_base_env_multi_targets, compute_episode_length_normalized_score, get_prompt_eval
 import copy
 import os
 

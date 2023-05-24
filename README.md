@@ -19,7 +19,7 @@ Organize directories in this structure:
 │   ├── metaworld/
 │   ├── mujoco-control-envs/
 ├── install_envs.sh
-├── prompt_dt
+├── task_prompt_dt
 ├── README.md
 ├── requirements.txt
 ├── setup.py
@@ -39,14 +39,14 @@ pip install -r requirements.txt
 
 ## Training + Evaluation
 
-To train the model(s) in the paper, modify `main` in **prompt_dt/pdt_main.py** and run this command in **prompt_dt**:
+To train the model(s) in the paper, modify `main` in **task_prompt_dt/task_pdt_main.py** and run this command in **task_prompt_dt**:
 
 ```train
-python pdt_main.py
+python task_pdt_main.py
 ```
 
-To run evaluations, modify `main` in **prompt_dt/pdt_main.py** to include the
-following, then run `python pdt_main.py`:
+To run evaluations, modify `main` in **task_prompt_dt/task_pdt_main.py** to include the
+following, then run `python task_pdt_main.py`:
 
 ```eval
 experiment_mix_env(config_filename="yaml_file_name_specified_in_configs_dir", mode="eval") # mode: ['train', 'eval', 'demo']
