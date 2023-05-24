@@ -28,8 +28,8 @@ Organize directories in this structure:
 To install requirements:
 
 ```setup
-conda create --name prompt-dt python=3.10.10
-conda activate prompt-dt
+conda create --name task-prompt-dt python=3.10.10
+conda activate task-prompt-dt
 pip install -r requirements.txt
 ./install_envs.sh
 ```
