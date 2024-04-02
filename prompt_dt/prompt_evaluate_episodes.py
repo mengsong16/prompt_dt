@@ -242,7 +242,10 @@ def normalize_returns(returns, expert_return, random_return):
 # eval_results are from the same base env
 def compute_episode_length_normalized_score(eval_results, info):
     org_env_name = eval_results[0]["env_name"]
-    base_env_name = '-'.join(org_env_name.split('-')[:-1])  # do not ignore "ML1" or "ML10"
+    if 'ML10' in org_env_name:
+        base_env_name = 'ML10'
+    else:
+        base_env_name = '-'.join(org_env_name.split('-')[:-1])  # do not ignore "ML1" or "ML10"
 
     all_episode_lengths = []
     all_normalized_returns = []

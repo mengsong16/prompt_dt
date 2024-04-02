@@ -166,7 +166,7 @@ def experiment_mix_env(config_filename, mode):
         test_total = list(itertools.chain.from_iterable(test_trajectories_list))
         total_traj_list = train_total + test_total
 
-        total_state_mean, total_state_std= get_total_data_mean_std(total_traj_list)
+        total_state_mean, total_state_std = get_total_data_mean_std(total_traj_list)
         variant['total_state_mean'] = total_state_mean
         variant['total_state_std'] = total_state_std
 
@@ -329,19 +329,21 @@ def experiment_mix_env(config_filename, mode):
                                 folder=os.path.join(eval_results_path, "test"))
                 
             # evaluate in train environments (including the first and last iteration)
-            if iter % variant['train_eval_interval'] == 0 or iter == max_iters-1:
-                train_eval_logs, train_eval_results = trainer.eval_iteration_multienv(
-                    get_prompt_fn, train_prompt_trajectories_list,
-                    eval_episodes, train_env_name_list, train_info, variant, 
-                    train_env_list, iter_num=iter + 1, 
-                    print_logs=True, group='train')
-                
-                # update logs
-                outputs.update(train_eval_logs)
-                # save evaluation results
-                save_eval_results(eval_results=train_eval_results, 
-                                file_name='iter-'+str(iter)+'.pkl', # iteration index starts from 0
-                                folder=os.path.join(eval_results_path, "train"))
+            eval_in_train_envs = variant.get('eval_in_train_envs', True)
+            if eval_in_train_envs:
+                if iter % variant['train_eval_interval'] == 0 or iter == max_iters-1:
+                    train_eval_logs, train_eval_results = trainer.eval_iteration_multienv(
+                        get_prompt_fn, train_prompt_trajectories_list,
+                        eval_episodes, train_env_name_list, train_info, variant, 
+                        train_env_list, iter_num=iter + 1, 
+                        print_logs=True, group='train')
+                    
+                    # update logs
+                    outputs.update(train_eval_logs)
+                    # save evaluation results
+                    save_eval_results(eval_results=train_eval_results, 
+                                    file_name='iter-'+str(iter)+'.pkl', # iteration index starts from 0
+                                    folder=os.path.join(eval_results_path, "train"))
 
             # save model (including the first and last iteration)
             if iter % variant['save_interval'] == 0 or iter == max_iters-1:
@@ -454,13 +456,26 @@ def experiment_mix_env(config_filename, mode):
         
 if __name__ == '__main__':
     #experiment_mix_env(config_filename="cheetah_dir.yaml", mode="train") # mode: ['train', 'eval', 'demo']
+    
     #experiment_mix_env(config_filename="cheetah_vel.yaml", mode="train")
     #experiment_mix_env(config_filename="ant_dir.yaml", mode="train")
     #experiment_mix_env(config_filename="ML1-pick-place-v2.yaml", mode="train")
     #experiment_mix_env(config_filename="ML1-reach-v2.yaml", mode="train")
-    experiment_mix_env(config_filename="ML1-push-v2.yaml", mode="train")
+    #experiment_mix_env(config_filename="ML1-push-v2.yaml", mode="train")
+    
+    #experiment_mix_env(config_filename="ablate_medium.yaml", mode="train")
+    #experiment_mix_env(config_filename="ablate_token_num_ant_dir.yaml", mode="train")
+    #experiment_mix_env(config_filename="ablate_token_num_push.yaml", mode="train")
+    
+    #experiment_mix_env(config_filename="ablate_token_num_pick_place.yaml", mode="train")
+    #experiment_mix_env(config_filename="ablate_delayed_reward_cheetah_vel.yaml", mode="train")
+    experiment_mix_env(config_filename="ablate_delayed_reward_pick_place.yaml", mode="train")
+    
     #experiment_mix_env(config_filename="walker_param.yaml", mode="train")
-    #experiment_mix_env(config_filename="ML10.yaml", mode="train")
+    
+    #experiment_mix_env(config_filename="ML10-goal-prompt.yaml", mode="train")
+    #experiment_mix_env(config_filename="ML10-traj-prompt.yaml", mode="train")
+    #experiment_mix_env(config_filename="ML10-goal-learned-prompt.yaml", mode="train")
     
 
     #experiment_mix_env(config_filename="ML1-pick-place-v2.yaml", mode="demo")

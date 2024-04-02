@@ -455,6 +455,7 @@ def compare_macaw_different_quality(base_env, task_num):
     for quality in quality_groups:
         #quality = "expert"
         ret_list = []
+        demo_ret_list = []
         for task_id in list(range(task_num)):
             # create current sub env
             env = create_env(env_name=f'{base_env}-{task_id}', config_save_path=task_config_path)
@@ -485,15 +486,17 @@ def compare_macaw_different_quality(base_env, task_num):
 
             obs = env.reset()
             cur_ret = 0
+            cur_demo_ret = 0
             for i in range(loop_steps): 
                 action = demon_traj["actions"][i]
                 # print(action)
                 # exit()
                 obs, reward, done, info = env.step(action)
-                print("-"*80)
-                print(reward)
-                print(demon_traj["rewards"][i][0])
+                # print("-"*80)
+                # print(reward)
+                # print(demon_traj["rewards"][i][0])
                 cur_ret += reward
+                cur_demo_ret += demon_traj["rewards"][i]
                 if "ML1" in base_env or "ML10" in base_env:
                     success = info['success']
                     print(success)
@@ -503,11 +506,12 @@ def compare_macaw_different_quality(base_env, task_num):
                 if done: 
                     break
             
-            print("-"*80)
-            print(cur_ret)
-            print(demon_traj["rewards"].sum())
-            exit()
+            # print("-"*80)
+            # print(cur_ret)
+            # print(demon_traj["rewards"].sum())
+            # exit()
             ret_list.append(cur_ret)
+            demo_ret_list.append(cur_demo_ret)
 
             if "ML1" in base_env or "ML10" in base_env:        
                 assert done == True
@@ -516,8 +520,9 @@ def compare_macaw_different_quality(base_env, task_num):
         
         ret_list = np.array(ret_list)
 
-        #print("-"*80)
-        print(quality, np.mean(ret_list))
+        print("-"*80)
+        print(f'{quality} online return mean:', np.mean(ret_list))
+        print(f'{quality} demon return mean:', np.mean(demo_ret_list))
         
 
 def visualize_expert_trajectory(quality="expert"):
@@ -642,14 +647,14 @@ if __name__ == '__main__':
     #test_envs(render=True)
     #test_walker()
     #test_ml10()
-    check_trajectory(quality='expert', prompt=False)
+    #check_trajectory(quality='expert', prompt=False)
     #test_ml10_name()
     #visualize_expert_trajectory(quality="expert")
     #visualize_expert_trajectory(quality="medium")
     #visualize_expert_trajectory(quality="random")
     #check_max_ep_len()
 
-    #compare_macaw_different_quality(base_env="walker_param", task_num=50)
+    compare_macaw_different_quality(base_env="walker_param", task_num=50)
     #compare_macaw_different_quality(base_env="ant_dir", task_num=50)
     #compare_macaw_different_quality(base_env="cheetah_vel", task_num=40)
 
