@@ -68,7 +68,7 @@ compare_normalized_returns: true
 
 # evaluation
 # where to load the model
-load_path: "ML1-pick-place-v2-45-env-expert-goal_prompt-s1-20230328-123529"
+load_path: "ML1-pick-place-v2-45-env-expert-goal_prompt-s1-20230502-134906"
 checkpoint_name: "iter-4999.pth"
 
 # seed
@@ -78,4 +78,4 @@ seed: 1
 device: 'cuda:1'
 
 # log
-log_to_wandb: true
+log_to_wandb: false #true

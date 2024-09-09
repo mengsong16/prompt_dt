@@ -75,6 +75,10 @@ class PromptSequenceTrainer:
         state_preds, action_preds, reward_preds = self.model.forward(
             states, actions, rewards, rtg[:,:-1], timesteps, attention_mask=attention_mask, prompt=prompt
             )
+        
+        # print(action_preds.shape)
+        # print(action_target.shape)
+        # print("==================")
 
         # apply attention mask
         # note that action_preds already get rid of the prompt part
@@ -89,6 +93,10 @@ class PromptSequenceTrainer:
                 None, action_preds, None,
                 None, action_target, None,
             )
+            # print(action_preds.shape)
+            # print(action_target.shape)
+            # exit()
+            
         elif self.loss_fn_type == 'predict_rtg':
             rtg_target = torch.clone(rtg[:,:-1])
             rtg_preds = reward_preds.reshape(-1, 1)[attention_mask.reshape(-1) > 0]

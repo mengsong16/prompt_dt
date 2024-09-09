@@ -8,6 +8,7 @@ import os
 import pickle 
 from prompt_dt.prompt_utils import flatten_trajectory_prompt
 #from gym.wrappers.monitoring.video_recorder import VideoRecorder
+import imageio
 
 """ evaluation """
 # evaluate policy with a given target rtg for n episodes in a test environment
@@ -21,12 +22,13 @@ def eval_episodes(target_rew, info, variant, env, env_name, render=False):
     def fn(model, prompt=None):
         returns = []
         episode_lengths = []
+        render_obs = []
         # evaluate for n episodes with the same prompt
         for _ in range(num_eval_episodes):
             with torch.no_grad():
                 # evaluate for one episode
                 # return episode_return and infos['episode_length']
-                ret, infos = prompt_evaluate_episode_rtg(
+                ret, infos, one_episode_render_obs = prompt_evaluate_episode_rtg(
                     env,
                     state_dim,
                     act_dim,
@@ -46,7 +48,15 @@ def eval_episodes(target_rew, info, variant, env, env_name, render=False):
                     )
             returns.append(ret)
             episode_lengths.append(infos['episode_length'])
+            if len(one_episode_render_obs) > 0:
+                render_obs.extend(one_episode_render_obs)
 
+        # save gif
+        # if len(render_obs) > 0:
+        #     ep_name = f'eval_{env_name}.gif'
+        #     with imageio.get_writer(ep_name, mode='I') as writer:
+        #         for r_obs in render_obs:
+        #             writer.append_data(r_obs)
 
         return {
             f'{env_name}_target_{int(target_rew)}_return_mean': np.mean(returns),
@@ -76,6 +86,8 @@ def prompt_evaluate_episode_rtg(
         render
     ):
     
+    one_episode_render_obs = []
+
     model.eval()
     model.to(device=device)
 
@@ -98,6 +110,7 @@ def prompt_evaluate_episode_rtg(
     timesteps = torch.tensor(0, device=device, dtype=torch.long).reshape(1, 1)
 
     episode_return, episode_length = 0, 0
+    
     for t in range(max_ep_len):
         # print('evaluate/t', t)
         
@@ -130,7 +143,10 @@ def prompt_evaluate_episode_rtg(
         state, reward, done, infos = env.step(action)
 
         if render:
-            env.render()
+            obs = env.render()
+            # print(obs.shape)
+            # exit()
+            one_episode_render_obs.append(obs)
 
         cur_state = torch.from_numpy(state).to(device=device).reshape(1, state_dim)
         # append new state to the rightmost location of the state history
@@ -167,8 +183,10 @@ def prompt_evaluate_episode_rtg(
         if done:
             break
 
+    
 
-    return episode_return, infos
+
+    return episode_return, infos, one_episode_render_obs
 
 # pack the evaluation results for a given (environment, return_target) pair into a dictionary
 # returns is a list
