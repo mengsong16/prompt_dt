@@ -1,4 +1,4 @@
-# Acute Zero-Shot Imitation Learning with Task Prompting
+# A Minimalist Prompt for Zero-Shot Policy Learning
 
 <div align="center"> <img src="./assets/baseline-comparison.png" width=800> </div>
 
